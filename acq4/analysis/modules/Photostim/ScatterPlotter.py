@@ -1,8 +1,8 @@
+from __future__ import print_function
 # -*- coding: utf-8 -*-
 
 from six.moves import range
 
-from __future__ import print_function
 from acq4.util import Qt
 import acq4.pyqtgraph as pg
 #import acq4.pyqtgraph.TreeWidget as TreeWidget

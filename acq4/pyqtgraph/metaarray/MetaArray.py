@@ -741,7 +741,7 @@ class MetaArray(object):
         ## decide which read function to use
         with open(filename, 'rb') as fd:
             magic = fd.read(8)
-            if magic == '\x89HDF\r\n\x1a\n':
+            if magic == b'\x89HDF\r\n\x1a\n':
                 fd.close()
                 self._readHDF5(filename, **kwargs)
                 self._isHDF = True
@@ -935,6 +935,10 @@ class MetaArray(object):
         f = h5py.File(fileName, mode)
         
         ver = f.attrs['MetaArray']
+        try:
+            ver = ver.decode('utf-8')
+        except:
+            pass
         if ver > MetaArray.version:
             print("Warning: This file was written with MetaArray version %s, but you are using version %s. (Will attempt to read anyway)" % (str(ver), str(MetaArray.version)))
         meta = MetaArray.readHDF5Meta(f['info'])
@@ -1011,6 +1015,10 @@ class MetaArray(object):
             data[k] = val
         
         typ = root.attrs['_metaType_']
+        try:
+            typ = typ.decode('utf-8')
+        except:
+            pass
         del data['_metaType_']
         
         if typ == 'dict':

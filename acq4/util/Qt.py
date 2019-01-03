@@ -39,7 +39,7 @@ from .. import pyqtgraph as pg
 globals().update(pg.Qt.QtGui.__dict__)
 globals().update(pg.Qt.QtCore.__dict__)
 globals().update(pg.Qt.QtTest.__dict__)
-#globals().update(importlib.import_module(pg.Qt.QT_LIB + '.QtSql').__dict__)
+globals().update(importlib.import_module(pg.Qt.QT_LIB + '.QtSql').__dict__)
 
 
 def importTemplate(modName):

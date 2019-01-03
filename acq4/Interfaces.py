@@ -122,6 +122,11 @@ class InterfaceDirectory(Qt.QObject):
         If *types* is None, return a dict tree of all interfaces.
         """
         with self.lock:
+            try:  # python 3 does not have basestring - just use str instead
+              basestring
+            except NameError:
+              basestring = str
+            
             if types is None:
                 types = self.typeList.keys()
             

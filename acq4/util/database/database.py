@@ -7,7 +7,7 @@ import collections
 import acq4.util.functions as functions
 import acq4.util.advancedTypes as advancedTypes
 import acq4.util.debug as debug
-from acq4.util import Qt
+#from acq4.util import Qt
 import six
 from six.moves import range
 import sqlite3
@@ -381,7 +381,7 @@ class SqliteDatabase:
             
             typ = schema[k].lower()
             if typ == 'blob':
-                converters[k] = lambda obj: buffer(pickle.dumps(obj))
+                converters[k] = lambda obj: memoryview(pickle.dumps(obj))
             elif typ == 'int':
                 converters[k] = int
             elif typ == 'real':
@@ -458,7 +458,7 @@ class SqliteDatabase:
             name = names[i]
             ## Unpickle byte arrays into their original objects.
             ## (Hopefully they were stored as pickled data in the first place!)
-            if isinstance(val, buffer):
+            if isinstance(val, memoryview):
                 val = pickle.loads(str(val))
             data[name] = val
         prof.finish()
@@ -684,6 +684,8 @@ class TableData:
     def copy_dict(self):
         return TableData({k:v[:] for k,v in self.data.items()})
         
+    def __getitem__(self, idx):
+        return(self.data[idx])
         
     def __iter__(self):
         for i in range(len(self)):

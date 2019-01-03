@@ -1,8 +1,8 @@
+from __future__ import print_function
 # -*- coding: utf-8 -*-
 
 from six.moves import range
 
-from __future__ import print_function
 from acq4.util import Qt
 from acq4.analysis.AnalysisModule import AnalysisModule
 import acq4.analysis.modules.EventDetector as EventDetector
