@@ -1459,7 +1459,8 @@ def zeroCrossingEvents(data, minLength=3, minPeak=0.0, minSum=0.0, noiseThreshol
     
     ## find all 0 crossings
     mask = data1 > 0
-    diff = mask[1:] - mask[:-1]  ## mask is True every time the trace crosses 0 between i and i+1
+    diff = mask[1:].astype(np.byte) - mask[:-1].astype(np.byte)
+    #diff = mask[1:] - mask[:-1]  ## mask is True every time the trace crosses 0 between i and i+1
     times1 = np.argwhere(diff)[:, 0]  ## index of each point immediately before crossing.
     
     times = np.empty(len(times1)+2, dtype=times1.dtype)  ## add first/last indexes to list of crossing times
