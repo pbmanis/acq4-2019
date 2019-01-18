@@ -1502,7 +1502,7 @@ def zeroCrossingEvents(data, minLength=3, minPeak=0.0, minSum=0.0, noiseThreshol
     if xvals is not None:
         events['time'] = xvals[events['index']]
     
-    if noiseThreshold  > 0:
+    if noiseThreshold  is not None:
         ## Fit gaussian to peak in size histogram, use fit sigma as criteria for noise rejection
         stdev = measureNoise(data1)
         #p.mark('measureNoise')
