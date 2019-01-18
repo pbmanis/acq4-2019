@@ -148,6 +148,8 @@ class PlotDataItem(GraphicsObject):
             
             'fftMode': False,
             'logMode': [False, False],
+            'derivativeMode': False,
+            'phasemapMode': False,
             'alphaHint': 1.0,
             'alphaMode': False,
             
@@ -209,6 +211,24 @@ class PlotDataItem(GraphicsObject):
         if self.opts['logMode'] == [xMode, yMode]:
             return
         self.opts['logMode'] = [xMode, yMode]
+        self.xDisp = self.yDisp = None
+        self.xClean = self.yClean = None
+        self.updateItems()
+        self.informViewBoundsChanged()
+
+    def setDerivativeMode(self, mode):
+        if self.opts['derivativeMode'] == mode:
+            return
+        self.opts['derivativeMode'] = mode
+        self.xDisp = self.yDisp = None
+        self.xClean = self.yClean = None
+        self.updateItems()
+        self.informViewBoundsChanged()
+
+    def setPhasemapMode(self, mode):
+        if self.opts['phasemapMode'] == mode:
+            return
+        self.opts['phasemapMode'] = mode
         self.xDisp = self.yDisp = None
         self.xClean = self.yClean = None
         self.updateItems()
@@ -490,9 +510,6 @@ class PlotDataItem(GraphicsObject):
             self.curve.hide()
         
         if scatterArgs['symbol'] is not None:
-            
-            if self.opts.get('stepMode', False) is True:
-                x = 0.5 * (x[:-1] + x[1:])                
             self.scatter.setData(x=x, y=y, **scatterArgs)
             self.scatter.show()
         else:
@@ -503,10 +520,27 @@ class PlotDataItem(GraphicsObject):
         if self.xData is None:
             return (None, None)
         
+        #if self.xClean is None:
+            #nanMask = np.isnan(self.xData) | np.isnan(self.yData) | np.isinf(self.xData) | np.isinf(self.yData)
+            #if nanMask.any():
+                #self.dataMask = ~nanMask
+                #self.xClean = self.xData[self.dataMask]
+                #self.yClean = self.yData[self.dataMask]
+            #else:
+                #self.dataMask = None
+                #self.xClean = self.xData
+                #self.yClean = self.yData
+            
         if self.xDisp is None:
             x = self.xData
             y = self.yData
             
+            
+            #ds = self.opts['downsample']
+            #if isinstance(ds, int) and ds > 1:
+                #x = x[::ds]
+                ##y = resample(y[:len(x)*ds], len(x))  ## scipy.signal.resample causes nasty ringing
+                #y = y[::ds]
             if self.opts['fftMode']:
                 x,y = self._fourierTransform(x, y)
                 # Ignore the first bin for fft data if we have a logx scale
@@ -517,6 +551,22 @@ class PlotDataItem(GraphicsObject):
                 x = np.log10(x)
             if self.opts['logMode'][1]:
                 y = np.log10(y)
+
+            if self.opts['derivativeMode']:  # plot dV/dt
+                y = np.diff(self.yData)/np.diff(self.xData)
+                x = x[:-1]
+            if self.opts['phasemapMode']:  # plot dV/dt vs V
+                x = self.yData[:-1]
+                y = np.diff(self.yData)/np.diff(self.xData)
+
+            #if any(self.opts['logMode']):  ## re-check for NANs after log
+                #nanMask = np.isinf(x) | np.isinf(y) | np.isnan(x) | np.isnan(y)
+                #if any(nanMask):
+                    #self.dataMask = ~nanMask
+                    #x = x[self.dataMask]
+                    #y = y[self.dataMask]
+                #else:
+                    #self.dataMask = None
                     
             ds = self.opts['downsample']
             if not isinstance(ds, int):
@@ -569,6 +619,8 @@ class PlotDataItem(GraphicsObject):
                     
             self.xDisp = x
             self.yDisp = y
+        #print self.yDisp.shape, self.yDisp.min(), self.yDisp.max()
+        #print self.xDisp.shape, self.xDisp.min(), self.xDisp.max()
         return self.xDisp, self.yDisp
 
     def dataBounds(self, ax, frac=1.0, orthoRange=None):
@@ -655,11 +707,10 @@ class PlotDataItem(GraphicsObject):
             x2 = np.linspace(x[0], x[-1], len(x))
             y = np.interp(x2, x, y)
             x = x2
-        n = y.size
-        f = np.fft.rfft(y) / n
-        d = float(x[-1]-x[0]) / (len(x)-1)
-        x = np.fft.rfftfreq(n, d)
-        y = np.abs(f)
+        f = np.fft.fft(y) / len(y)
+        y = abs(f[1:len(f)/2])
+        dt = x[-1] - x[0]
+        x = np.linspace(0, 0.5*len(x)/dt, len(y))
         return x, y
     
 def dataType(obj):
@@ -774,7 +825,7 @@ def isSequence(obj):
         #if isinstance(arg, basestring):
             #return self.data[arg]
         #elif isinstance(arg, int):
-            #return dict([(k, v[arg]) for k, v in self.data.items()])
+            #return dict([(k, v[arg]) for k, v in self.data.iteritems()])
         #elif isinstance(arg, tuple):
             #arg = self._orderArgs(arg)
             #return self.data[arg[1]][arg[0]]
