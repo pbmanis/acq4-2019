@@ -24,13 +24,25 @@ Does NOT:
 from __future__ import print_function
 import inspect, os, sys, gc, traceback, types
 from .debug import printExc
-try:
-    from importlib import reload as orig_reload
-except ImportError:
-    orig_reload = reload
+from pathlib import Path
+pyver = sys.version_info
 
+if pyver <= (2,):
+    rld = reload
+elif pyver <= (3,3):
+    import imp
+    rld = imp.reload
+elif pyver >= (3,4):
+    import importlib
+    rld = importlib.reload
+    
+else:
+    raise ImportError
 
-py3 = sys.version_info >= (3,)
+# try:
+#     from importlib import reload as orig_reload
+# except ImportError:
+#     orig_reload = reload
 
 
 def reloadAll(prefix=None, debug=False):
@@ -40,12 +52,26 @@ def reloadAll(prefix=None, debug=False):
     """
     failed = []
     changed = []
+    # This gives the entire environment:
+    # list(sys.modules.items())
+    pyfiles = Path('.').glob('**/*.py')
+    pycfiles = Path('.').glob('**/*.pyc')
+    acq4files = list(pyfiles) + list(pycfiles)
+    acq4files = [str(a) for a in acq4files]
+    # print('acq4files: ', acq4files)
+    # print('prefix: ', prefix)
+    # return
+    
     for modName, mod in list(sys.modules.items()):  ## don't use iteritems; size may change during reload
         if not inspect.ismodule(mod):
             continue
         if modName == '__main__':
             continue
-        
+        if not modName.startswith('acq4.'): #  and not modName.startswith('pyqtgraph.'):
+            continue
+        # print('modname: ', modName)
+        # if modName not in acq4files:
+        #     continue
         ## Ignore if the file name does not start with prefix
         if not hasattr(mod, '__file__') or os.path.splitext(mod.__file__)[1] not in ['.py', '.pyc']:
             continue
@@ -66,7 +92,7 @@ def reloadAll(prefix=None, debug=False):
         except:
             printExc("Error while reloading module %s, skipping\n" % mod)
             failed.append(mod.__name__)
-        
+    print('changed: ', changed)
     if len(failed) > 0:
         raise Exception("Some modules failed to reload: %s" % ', '.join(failed))
 
@@ -83,7 +109,7 @@ def reload(module, debug=False, lists=False, dicts=False):
         
     ## make a copy of the old module dictionary, reload, then grab the new module dictionary for comparison
     oldDict = module.__dict__.copy()
-    orig_reload(module)
+    rld(module)
     newDict = module.__dict__
     
     ## Allow modules access to the old dictionary after they reload
@@ -206,7 +232,7 @@ def updateClass(old, new, debug):
     ## but it fixes a few specific cases (pyqt signals, for one)
     for attr in dir(old):
         oa = getattr(old, attr)
-        if (py3 and inspect.isfunction(oa)) or inspect.ismethod(oa):
+        if ((pyver > (3,)) and inspect.isfunction(oa)) or inspect.ismethod(oa):
             # note python2 has unbound methods, whereas python3 just uses plain functions
             try:
                 na = getattr(new, attr)
