@@ -58,9 +58,11 @@ def readConfigFile(fname):
         #os.chdir(newDir)  ## bad.
         fd = open(fname)
         s = asUnicode(fd.read())
+        # print('configfile.py: s = ', s)
         fd.close()
         s = s.replace("\r\n", "\n")
         s = s.replace("\r", "\n")
+        # print(' string to parse: ', s)
         data = parseString(s)[1]
     except ParseError:
         sys.exc_info()[1].fileName = fname
@@ -146,7 +148,7 @@ def parseString(lines, start=0):
             local['datetime'] = datetime
             # Needed for reconstructing numpy arrays
             local['array'] = numpy.array
-            for dtype in ['int8', 'uint8', 
+            for dtype in ['int8', 'uint8',
                           'int16', 'uint16', 'float16',
                           'int32', 'uint32', 'float32',
                           'int64', 'uint64', 'float64']:
@@ -163,7 +165,13 @@ def parseString(lines, start=0):
                     pass
             if re.search(r'\S', v) and v[0] != '#':  ## eval the value
                 try:
-                    val = eval(v, local)
+                    if v[0] == '[' and v[-1] == ']':  # get rid of 'L' in list or tuple from camera
+                        a = ''.join(s for s in v if s != 'L')
+                        v = a
+                    if v[0] == '(' and v[-1] == ')':
+                        a = ''.join(s for s in v if s != 'L')
+                        v = a
+                    val = eval(str(v), local)
                 except:
                     ex = sys.exc_info()[1]
                     raise ParseError("Error evaluating expression '%s': [%s: %s]" % (v, ex.__class__.__name__, str(ex)), (ln+1), l)
@@ -172,7 +180,9 @@ def parseString(lines, start=0):
                     #print "blank dict"
                     val = {}
                 else:
-                    #print "Going deeper..", ln+1
+                    # print( "Going deeper..", ln+1)
+                    # print('lines', lines)
+                    # print('start: ', ln+1)
                     (ln, val) = parseString(lines, start=ln+1)
             data[k] = val
         #print k, repr(val)
@@ -204,6 +214,8 @@ key2:              ##comment
                    ##comment
     key22: [1,2,3]
     key23: 234  #comment
+    key33: [1L, 2L, 3L] # comment
+    key34: (1L, 2L, 3L) ## comment
     """
     tf.write(cf)
     tf.close()
