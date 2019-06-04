@@ -599,6 +599,8 @@ class MetaArray(object):
             axis = self._info[i]
             if 'name' in axis and axis['name'] == name:
                 return i
+            if 'name' in axis and axis['name'] == bytearray("'"+name+"'", 'utf-8'):
+                return i
         raise Exception("No axis named %s.\n  info=%s" % (name, self._info))
   
     def _getIndex(self, axis, name):
@@ -606,6 +608,8 @@ class MetaArray(object):
         if ax is not None and 'cols' in ax:
             for i in range(0, len(ax['cols'])):
                 if 'name' in ax['cols'][i] and ax['cols'][i]['name'] == name:
+                    return i
+                if 'name' in ax['cols'][i] and ax['cols'][i]['name'] == bytearray("'"+name+"'", 'utf-8'):
                     return i
         raise Exception("Axis %d has no column named %s.\n  info=%s" % (axis, name, self._info))
   
