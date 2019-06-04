@@ -16,6 +16,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(path, '..', '..'))
 
 import threading, os, re, sys, shutil
+import functools
 from acq4.util.functions import strncmp
 from acq4.util.configfile import *
 import time
@@ -596,7 +597,21 @@ class DirHandle(FileHandle):
             else:
                 ret = files[:]
                 return ret
+                
+    def cmp(self, x, y):
+        """
+        Replacement for built-in function cmp that was removed in Python 3
+
+        Compare the two objects x and y and return an integer according to
+        the outcome. The return value is negative if x < y, zero if x == y
+        and strictly positive if x > y.
+        """
+
+        return (x > y) - (x < y)
     
+    def _cmp_names(self, a, b):
+        return 2*self.cmp(os.path.isdir(os.path.join(self.name(),b)), os.path.isdir(os.path.join(self.name(),a))) + self.cmp(a,b)
+        
     def _updateLsCache(self, sortMode):
         try:
             files = os.listdir(self.name())
@@ -616,7 +631,9 @@ class DirHandle(FileHandle):
             files.sort(key=lambda f: (self.cTimeCache[f], f))  ## sort by time first, then name.
         elif sortMode == 'alpha':
             ## show directories first when sorting alphabetically.
-            files.sort(key=lambda a,b: 2*cmp(os.path.isdir(os.path.join(self.name(),b)), os.path.isdir(os.path.join(self.name(),a))) + cmp(a,b))
+            #python 3 has no cmp function, so we need to break this out.
+            
+            files.sort(key=functools.cmp_to_key(self._cmp_names))
         elif sortMode == None:
             pass
         else:
