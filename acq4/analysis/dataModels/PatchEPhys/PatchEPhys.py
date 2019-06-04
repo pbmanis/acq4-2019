@@ -34,17 +34,17 @@ Should allow simple questions like
     Is this a sequence protocol or a single?
     Give me a meta-array linking all of the data in a sequence (will have to use hdf5 for this?)
     Give me a meta-array of all images from 'Camera' in a sequence (will have to use hdf5 for this?)
-    
+
     Give me the clamp device for this protocol run
     tell me the temperature of this run
     tell me the holding potential for this clamp data
     possibly DB integration?
-    
+
     When did the laser stimulation occur, for how long, and at what power level?
-    
+
 Notes:
     Should be able to easily switch to a different data model
-    
+
 """
 
 def knownClampNames():
@@ -57,7 +57,7 @@ def isSequence(dh):
         #return True
     #else:
         #return False
-    
+
 def dirType(dh, allowRecurse=True):
     """
     Return a string representing the type of data stored in a directory.
@@ -74,10 +74,10 @@ def dirType(dh, allowRecurse=True):
             type = 'Patch'
         elif 'protocol' in info:
             if 'sequenceParams' in info:
-                type = 'ProtocolSequence'  
+                type = 'ProtocolSequence'
             else:
                 type = 'Protocol'  ## an individual protocol run, NOT a single run from within a sequence
-        
+
         else:
             try:
                 assert allowRecurse
@@ -106,7 +106,7 @@ def listSequenceParams(dh):
 #        raise Exception("Directory '%s' does not appear to be have a wave Generator." % dh.name())
 
 def buildSequenceArray(*args, **kargs):
-    """Builds a MetaArray of data compiled across a sequence. 
+    """Builds a MetaArray of data compiled across a sequence.
     Arguments:
         dh:      directory handle for the protocol sequence
         func:    a function (optional) that returns an array or scalar, given a protocol dir handle.
@@ -117,21 +117,21 @@ def buildSequenceArray(*args, **kargs):
         truncate: If join=True and some elements differ in shape, truncate to the smallest shape
         fill:    If join=True, pre-fill the empty array with this value. Any points in the
                  parameter space with no data will be left with this value.
-        
-    Example: Return an array of all primary-channel clamp recordings across a sequence 
+
+    Example: Return an array of all primary-channel clamp recordings across a sequence
         buildSequenceArray(seqDir, lambda protoDir: getClampFile(protoDir).read()['primary'])"""
-        
+
     for i,m in buildSequenceArrayIter(*args, **kargs):
         if m is None:
             return i
-        
+
 def buildSequenceArrayIter(dh, func=None, join=True, truncate=False, fill=None):
     """Iterator for buildSequenceArray that yields progress updates."""
-        
+
     if func is None:
         func = lambda dh: dh
         join = False
-        
+
     params = listSequenceParams(dh)
     #inds = OrderedDict([(k, range(len(v))) for k,v in params.iteritems()])
     #def runFunc(dh, func, params):
@@ -142,7 +142,7 @@ def buildSequenceArrayIter(dh, func=None, join=True, truncate=False, fill=None):
     subDirs = dh.subDirs()
     if len(subDirs) == 0:
         yield None, None
-    
+
     ## set up meta-info for sequence axes
     seqShape = tuple([len(p) for p in params.values()])
     info = [[] for i in range(len(seqShape))]
@@ -150,10 +150,10 @@ def buildSequenceArrayIter(dh, func=None, join=True, truncate=False, fill=None):
     for k,v in params.items():
         info[i] = {'name': k, 'values': np.array(v)}
         i += 1
-    
+
     ## get a data sample
     first = func(dh[subDirs[0]])
-    
+
     ## build empty MetaArray
     if join:
         shape = seqShape + first.shape
@@ -164,7 +164,7 @@ def buildSequenceArrayIter(dh, func=None, join=True, truncate=False, fill=None):
         data = MetaArray(np.empty(shape, first.dtype), info=info)
         if fill is not None:
             data[:] = fill
-        
+
     else:
         shape = seqShape
         info = info + []
@@ -237,10 +237,19 @@ def isClampFile(fh):
     else:
         return True
 
-def getClampCommand(data, generateEmpty=True):    
+def getClampCommand(data, generateEmpty=True):
     """Returns the command data from a clamp MetaArray.
-    If there was no command specified, the function will return all zeros if generateEmpty=True (default)."""
-    
+    If there was no command specified, the function will return all zeros if generateEmpty=True (default).
+
+    Parameters
+    ----------
+    data : metaarray
+        metaarray (info) to get clamp command from
+
+    generateEmpty : Boolean
+        if True, returns all zeros in a new metaarray
+    """
+
     if data.hasColumn('Channel', 'Command'):
         return data['Channel': 'Command']
     elif data.hasColumn('Channel', 'command'):
@@ -249,7 +258,7 @@ def getClampCommand(data, generateEmpty=True):
         if generateEmpty:
             tVals = data.xvals('Time')
             mode = getClampMode(data)
-            if 'v' in mode.lower():
+            if b'v' in mode.lower():
                 units = 'V'
             else:
                 units = 'A'
@@ -257,11 +266,15 @@ def getClampCommand(data, generateEmpty=True):
     return None
 
 def getClampPrimary(data):
-    """Return primary channel from """
-    if data.hasColumn('Channel', 'primary'):
-        return data['Channel': 'primary']
+    """Return primary channel from
+        the data
+        """
+    if data.hasColumn(b"'Channel'", b"'primary'"):
+        return data[b"'Channel'": b"'primary'"]
+    elif data.hasColumn(b"'Channel'", b"'scaled'"):
+        return data[b"'Channel'": b"'scaled'"]
     else:
-        return data['Channel': 'scaled']
+        raise ValueError
 
 def getClampMode(data_handle, dir_handle=None):
     """Given a clamp file handle or MetaArray, return the recording mode."""
@@ -301,7 +314,7 @@ def getClampHoldingLevel(data_handle):
     """
     if not isClampFile(data_handle):
         raise Exception('%s not a clamp file.' % data_handle.shortName())
-    
+
     data = data_handle.read(readAllData=False)
     info = data._info[-1]
     p1 = data_handle.parent()
@@ -310,7 +323,7 @@ def getClampHoldingLevel(data_handle):
         sinfo = p2.info()
     else:
         sinfo = p1.info()
-    
+
     ## There are a few places we could find the holding value, depending on how old the data is
     if 'ClampState' in info and 'holding' in info['ClampState']:
         return info['ClampState']['holding']
@@ -436,7 +449,7 @@ def getClampDeviceNames(protoDH):
     """
     get the Clamp devices used in the current protocol
     :param protoDH: handle to current protocol
-    :return clampDeviceNames: The names of the clamp devices used in this protocol, or None if no devices 
+    :return clampDeviceNames: The names of the clamp devices used in this protocol, or None if no devices
     """
     if protoDH.name()[-8:] == 'DS_Store': ## OS X filesystem puts .DS_Store files in all directories
         return None
@@ -479,10 +492,10 @@ def getParentInfo(dh, parentType):
         return None
     else:
         return dh.info()
-    
+
 def getDayInfo(dh):
     return getParentInfo(dh, 'Day')
-    
+
 def getSliceInfo(dh):
     return getParentInfo(dh, 'Slice')
 
@@ -494,7 +507,7 @@ def getACSF(dh):
     if dayInfo is not None:
         return dayInfo.get('solution', '')
     return None
-    
+
 def getInternalSoln(dh):
     dayInfo = getDayInfo(dh)
     if dayInfo is not None:
@@ -517,7 +530,7 @@ def getCellType(dh):
         return cellInfo.get('type', '')
     else:
         return('Unknown')
-        
+
 def file_cell_protocol(filename):
     """
     file_cell_protocol breaks the current filename down and returns a
@@ -591,12 +604,12 @@ class GetClamps():
     def getClampData(self, dh, pars=None):
         """
         Read the clamp data - whether it is voltage or current clamp, and put the results
-        into our class variables. 
+        into our class variables.
         dh is the file handle (directory)
         pars is a structure that provides some control parameters usually set by the GUI
         Returns a short dictionary of some values; others are accessed through the class.
         Returns None if no data is found.
-        """   
+        """
         pars = self.getParsDefaults(pars)
         clampInfo = {}
         if dh is None:
@@ -640,7 +653,7 @@ class GetClamps():
             dirs = []
 ###
 ### This is possibly broken -
-### 
+###
 ###
             ld = pars['sequence1']['index']
             rd = pars['sequence2']['index']
@@ -793,7 +806,7 @@ class GetClamps():
         else:
             raise Exception("PatchEPhys/GetClamps: cannot find pulse information")
         # adjusting pulse start/duration is necessary for early files, where the values
-        # were stored as msec, rather than sec. 
+        # were stored as msec, rather than sec.
         # we do this by checking the values against the time base itself, which is always in seconds.
         # if they are too big, we guess (usually correctly) that the values are in the wrong units
         if pulsestart + pulsedur > np.max(self.time_base):
@@ -818,33 +831,31 @@ class GetClamps():
 
     def getParsDefaults(self, pars):
         """
-        pars is a dictionary that defines the special cases for getClamps. 
+        pars is a dictionary that defines the special cases for getClamps.
         Here, given the pars dictionary that was passed to getClamps, we make sure that all needed
         elements are present, and substitute logical values for those that are missing
         :returns: updated pars dictionary
         """
-        
+
         if pars is None:
             pars = {}
         # neededKeys = ['limits', 'cmin', 'cmax', 'KeepT', 'sequence1', 'sequence2']
         # hmm. could do this as a dictionary of value: default pairs and a loop
         k = pars.keys()
         if 'limits' not in k:
-            pars['limits'] = False 
+            pars['limits'] = False
         if 'cmin' not in k:
-            pars['cmin'] = -np.inf 
+            pars['cmin'] = -np.inf
             pars['cmax'] = np.inf
         if 'KeepT' not in k:
-            pars['KeepT'] = False 
+            pars['KeepT'] = False
         # sequence selections:
         # pars[''sequence'] is a dictionary
         # The dictionary has  'index' (currentIndex()) and 'count' from the GUI
         if 'sequence1' not in k:
             pars['sequence1'] = {'index': 0}  # index of '0' is "All"
-            pars['sequence1']['count'] = 0 
+            pars['sequence1']['count'] = 0
         if 'sequence2' not in k:
-            pars['sequence2'] = {'index': 0} 
+            pars['sequence2'] = {'index': 0}
             pars['sequence2']['count'] = 0
         return pars
-        
-
