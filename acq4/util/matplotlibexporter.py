@@ -10,6 +10,7 @@ import acq4.pyqtgraph as pg
 
 try:
     import matplotlib as MP
+    MP.use('Qt4Agg')
     from matplotlib.ticker import FormatStrFormatter
     import matplotlib.pyplot as pylab
     import matplotlib.gridspec as gridspec
@@ -19,7 +20,7 @@ except ImportError:
     HAVE_MPL = False
 
 if HAVE_MPL:
-    MP.use('TKAgg')
+    # MP.use('TKAgg')
     # Do not modify the following code
     # sets up matplotlib with sans-serif plotting...
     pylab.rcParams['text.usetex'] = True
