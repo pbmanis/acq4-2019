@@ -110,8 +110,8 @@ class STDPAnalyzer(AnalysisModule):
         self.ctrl.averageCheck.setChecked(True)
         self.ctrl.averageTimeSpin.setOpts(suffix='s', siPrefix=True, dec=True, value=60, step=1)
         self.ctrl.averageNumberSpin.setOpts(step=1, dec=True)
-        self.ctrl.startExcludeAPsSpin.setOpts(suffix='s', siPrefix=True, dec=True, value=0, step=1, minstep=0.001)
-        self.ctrl.endExcludeAPsSpin.setOpts(suffix='s', siPrefix=True, dec=True, value=0.25, step=1, minstep=0.001)
+        self.ctrl.startExcludeAPsSpin.setOpts(suffix='s', siPrefix=True, dec=True, value=0, step=1, minStep=0.001)
+        self.ctrl.endExcludeAPsSpin.setOpts(suffix='s', siPrefix=True, dec=True, value=0.25, step=1, minStep=0.001)
         self.averageCtrl.sigChanged.connect(self.averageCtrlChanged)
 
         self.analysisCtrl = pg.WidgetGroup(self.ctrl.analysisGroup)
@@ -148,8 +148,10 @@ class STDPAnalyzer(AnalysisModule):
         self.healthRgn.setRegion((0.24,0.34))
 
         #self.ctrl.measureAvgSpin.setOpts(step=1, dec=True)
-        self.ctrl.measureModeCombo.addItems(['Slope (max)'])
-
+        self.ctrl.measureModeCombo.addItems(['Slope: V/s', 'Amplitude: V', 'Area: t*V'])
+        self.ctrl.measureModeCombo.setCurrentIndex(0)
+        
+        self.ctrl.measureModeCombo.currentIndexChanged.connect(self.measureModeChanged)
         ### Set up internal information storage
         self.traces = np.array([], dtype=[('timestamp', float), ('data', object)]) 
         self.excludedTraces = np.array([], dtype=[('timestamp', float), ('data', object)])
@@ -158,10 +160,6 @@ class STDPAnalyzer(AnalysisModule):
         self.lastAverageState = {}
         self.files = []
         self.analysisResults=None
-
-
-
-
 
 
     def loadEPSPFileRequested(self, files):
@@ -294,7 +292,7 @@ class STDPAnalyzer(AnalysisModule):
                         self.plots.tracesPlot.plot(orig['primary'], pen=pg.intColor(i, len(data), alpha=30))
 
         ### If analysis has been done, mark the location on each trace where the highest slope was found
-        if self.analysisResults is not None and len(data[dataKey] > 0):
+        if self.analysisResults is not None and len(data[dataKey]) > 0:
             datatime = data[dataKey][0].axisValues('Time')
             timestep = datatime[1]-datatime[0]
             for i, time in enumerate(data[timeKey]):
@@ -598,23 +596,31 @@ class STDPAnalyzer(AnalysisModule):
         finally:
             self.spikeLine.blockSignals(False)
 
+    def measureModeChanged(self):
+        self.analysisMode = self.ctrl.measureModeCombo.currentText()  # reall don't use this, just read directly from combo box
+        name = self.analysisMode.split(' ')
+        self.plots.plasticityPlot.setLabel('left', name[0], units=name[1])
+        self.updatePlot()
+        
     def analyze(self):
+        """
+        Do analysis of traces in the current selection
+        """
         for p in [self.plots.plasticityPlot, self.plots.RMP_plot, self.plots.RI_plot]:
             p.clear()
-
         if self.ctrl.averageAnalysisCheck.isChecked():
             times = self.averagedTraces['avgTimeStamp']
             traces = self.averagedTraces['avgData']
         else:
             times = self.traces['timestamp']
             traces = self.traces['data']
-
-        self.analysisResults = np.zeros(len(traces), dtype=[('time', float), 
+        self.analysisResults = np.zeros(len(traces), dtype=[('time', float), # record array... 
                                                             ('RMP', float), 
                                                             ('pspSlope', float),
                                                             ('slopeFitOffset', float),
                                                             ('highSlopeLocation', float),
                                                             ('pspAmplitude', float),
+                                                            ('pspArea', float),
                                                             ('inputResistance', float),
                                                             ('holdingCurrent',float),
                                                             ('bridgeBalance', float),
@@ -623,28 +629,44 @@ class STDPAnalyzer(AnalysisModule):
 
         self.analysisResults['time'] = times
         
-        symsize = 5.0
         
         if self.ctrl.healthCheck.isChecked():
             self.measureHealth(traces)
-            self.plots.RI_plot.plot(x=times-self.expStart, y=self.analysisResults['inputResistance'],
-                pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
 
         if self.ctrl.baselineCheck.isChecked():
             self.measureBaseline(traces)
-            self.plots.RMP_plot.plot(x=times-self.expStart, y=self.analysisResults['RMP'],
-                pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
+        symsize = 5.0
 
         self.measureCurrent(traces)
         self.plots.holdingPlot.plot(x=times-self.expStart, y=self.analysisResults['holdingCurrent'],
             pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
+        if self.ctrl.healthCheck.isChecked():
+            self.plots.RI_plot.plot(x=times-self.expStart, y=self.analysisResults['inputResistance'],
+                pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
+        if self.ctrl.baselineCheck.isChecked():
+            self.plots.RMP_plot.plot(x=times-self.expStart, y=self.analysisResults['RMP'],
+                pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
+
+        self.updatePlot()
+        
+    def updatePlot(self):
+        if self.ctrl.averageAnalysisCheck.isChecked():
+            times = self.averagedTraces['avgTimeStamp']
+            traces = self.averagedTraces['avgData']
+        else:
+            times = self.traces['timestamp']
+            traces = self.traces['data']
+        print('updating plot')
 
         postwin = [self.ctrl.plasticityRgnStartSpin.value(), self.ctrl.plasticityRgnEndSpin.value()]
         #postwin = [20., 40.]  # minutes after start for measuring amplitude
         #postwin = [27., 47.] ## Accounted for below in postStart --minutes after start (of pre-pairing baseline) for measuring post-pairing amplitude. assumes baseline + pairing takes 7 minutes
+        times = self.analysisResults['time']
+        symsize = 4.0
+
         if self.ctrl.pspCheck.isChecked():
             self.measurePSP(traces)
-            if self.ctrl.measureModeCombo.currentText() == 'Slope (max)':
+            if self.ctrl.measureModeCombo.currentText().startswith('Slope'):
                 self.plots.plasticityPlot.plot(x=times-self.expStart, y=self.analysisResults['pspSlope'],
                     pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
                 #basepts = self.analysisResults['time'].shape[0]-1 ## Paul, why did you choose this?
@@ -655,25 +677,30 @@ class STDPAnalyzer(AnalysisModule):
                 #postStart = self.analysisResults['time'][0]+ 7*60 ## baseline and pairing take up 7 minutes from the start of the experiment
                 pr1 = np.argwhere(self.analysisResults['time'] >= 60*postwin[0]+self.expStart)
                 pr2 = np.argwhere(self.analysisResults['time'] <= 60*postwin[1]+self.expStart)
+                print(pr1, postwin, self.expStart)
                 try:
                     x = pr1[0] # no points inside 
                 except:
                     print(self.analysisResults['time'])
-                    print('starttime: ', postStart)
+                    print('starttime: ', postwin[0])
                     msg = 'Recording is shorter than needed for analysis window\n'
                     msg += 'Max rec time: %8.3f sec, window starts at %8.3f sec' % (np.max
                         (self.analysisResults['time']), 60.*postwin[0])
                     raise ValueError(msg)
                     return
-                postRgn = (pr1[0], pr2[-1])
+                postRgn = (pr1[0][0], pr2[-1][0])
                 post, postTime = (self.analysisResults['pspSlope'][postRgn[0]:postRgn[1]].mean(),
-                    [self.analysisResults['time'][postRgn[0]][0]-self.expStart, self.analysisResults['time'][postRgn[1]][0]-self.expStart])
+                    [self.analysisResults['time'][postRgn[0]]-self.expStart, self.analysisResults['time'][postRgn[1]]-self.expStart])
                 self.plots.plasticityPlot.plot(x=basetime, y=[base]*2, pen='r')
                 self.plots.plasticityPlot.plot(x=postTime, y=[post]*2, pen='r')
                 self.plasticity = post/base
                 self.plots.plasticityPlot.setLabel('left', "EPSP Slope (mV/ms)")
-            elif self.ctrl.measureModeCombo.currentText() == 'Amplitude (max)':
+            elif self.ctrl.measureModeCombo.currentText().startswith('Amp'):
                 self.plots.plasticityPlot.plot(x=times-self.expStart, y=self.analysisResults['pspAmplitude'],
+                    pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
+                self.plots.plasticityPlot.setLabel('left', "EPSP Amplitude (mV)")
+            elif self.ctrl.measureModeCombo.currentText().startswith('Area'):
+                self.plots.plasticityPlot.plot(x=times-self.expStart, y=self.analysisResults['pspArea'],
                     pen=None, symbol='o', symbolSize=symsize, symbolPen=None)
                 self.plots.plasticityPlot.setLabel('left', "EPSP Amplitude (mV)")
         self.updateTracesPlot()
@@ -720,20 +747,25 @@ class STDPAnalyzer(AnalysisModule):
                 t += step
 
             self.analysisResults[i]['pspSlope'] = slope
+            self.analysisResults[i]['pspAmplitude'] = 0
+            self.analysisResults[i]['pspArea'] = 0
             self.analysisResults[i]['slopeFitOffset'] = offset
             self.analysisResults[i]['highSlopeLocation'] = hightime
 
 
 
-            # # Measure PSP Amplitude
-            # if self.analysisResults['RMP'][i] != 0:
-            #     baseline = self.analysisResults['RMP'][i]
-            # else:
-            #     baseline = data['primary'][:5].mean() ## if we don't have a baseline measurement, just use the first 5 points
-            # peakPosition = np.argwhere(data['primary'] == data['primary'].max())[0]
-            # avgPeak = data['primary'][peakPosition-int(5/2):peakPosition+int(5/2)].mean() - baseline
-
-            # self.analysisResults[i]['pspAmplitude'] = avgPeak
+            # Measure PSP Amplitude
+            if self.analysisResults['RMP'][i] != 0:
+                baseline = self.analysisResults['RMP'][i]
+            else:
+                baseline = data['primary'][:5].mean() ## if we don't have a baseline measurement, just use the first 5 points
+            peakPosition = np.argwhere(data['primary'] == data['primary'].max())[0][0]
+            avgPeak = data['primary'][peakPosition-int(5/2):peakPosition+int(5/2)].mean() - baseline
+            self.analysisResults[i]['pspAmplitude'] = avgPeak
+            
+            # and area in the window:
+            area = np.sum(data['primary']-baseline)
+            self.analysisResults[i]['pspArea'] = area
 
     def measureHealth(self, traces):
         rgn = self.healthRgn.getRegion()
@@ -798,6 +830,7 @@ class STDPAnalyzer(AnalysisModule):
                                                             ('slopeFitOffset', float),
                                                             ('highSlopeLocation', float),
                                                             ('pspAmplitude', float),
+                                                            ('pspArea', float),
                                                             ('pspRgnStart', float),
                                                             ('pspRgnEnd', float),
                                                             ('analysisCtrlState', object),
@@ -822,6 +855,7 @@ class STDPAnalyzer(AnalysisModule):
             data[i]['slopeFitOffset'] = self.analysisResults[i]['slopeFitOffset']
             data[i]['highSlopeLocation'] = self.analysisResults[i]['highSlopeLocation']
             data[i]['pspAmplitude'] = self.analysisResults[i]['pspAmplitude']
+            data[i]['pspArea'] = self.analysisResults[i]['pspArea']
             data[i]['includedProtocols'] = self.averagedTraces[i]['origTimes'] ### TODO: make this protocolDirs instead of timestamps....
 
         old = db.select(table, where={'CellDir':data['CellDir'][0]}, toArray=True)
@@ -982,11 +1016,3 @@ class STDPAnalyzer(AnalysisModule):
 
         return view
 
-
-        
-
-
-
-
-
-    

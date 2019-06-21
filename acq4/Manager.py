@@ -593,7 +593,7 @@ class Manager(Qt.QObject):
         #path = os.path.abspath(os.path.join(path, '..'))
         path = 'acq4'
         print("\n---- Reloading all libraries under %s ----" % path)
-        reload.reloadAll(debug=True)
+        reload.reloadAll(debug=False)
         print("Done reloading.\n")
         logMsg("Reloaded all libraries under %s." %path, msgType='status')
         

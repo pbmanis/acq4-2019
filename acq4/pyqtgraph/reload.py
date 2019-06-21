@@ -52,47 +52,64 @@ def reloadAll(prefix=None, debug=False):
     """
     failed = []
     changed = []
-    # This gives the entire environment:
-    # list(sys.modules.items())
+
+    pyqt = []
+    for m in list(sys.modules.items()):
+        if m[0].startswith('PyQt'):
+            # print('module: ', m)
+            pyqt.append(m[0])
+
     pyfiles = Path('.').glob('**/*.py')
     pycfiles = Path('.').glob('**/*.pyc')
-    acq4files = list(pyfiles) + list(pycfiles)
+    acq4files = list(pyfiles)
     acq4files = [str(a) for a in acq4files]
     # print('acq4files: ', acq4files)
-    # print('prefix: ', prefix)
-    # return
-    
+#     print('prefix: ', prefix)
+#     return
+#
     for modName, mod in list(sys.modules.items()):  ## don't use iteritems; size may change during reload
         if not inspect.ismodule(mod):
             continue
         if modName == '__main__':
             continue
-        if not modName.startswith('acq4.'): #  and not modName.startswith('pyqtgraph.'):
-            continue
-        # print('modname: ', modName)
-        # if modName not in acq4files:
+        # if modName in pyqt:
         #     continue
-        ## Ignore if the file name does not start with prefix
-        if not hasattr(mod, '__file__') or os.path.splitext(mod.__file__)[1] not in ['.py', '.pyc']:
+        if not modName.startswith('acq4.'): #  or modName.startswith('pyqtgraph.'):
             continue
+
+        if pyver <= (2,) and not hasattr(mod, '__file__') and Path(mod.__file__).suffix not in ['.py', '.pyc']:
+            continue
+        elif pyver >= (3,4):
+            pycfile = Path(importlib.util.cache_from_source(Path(mod.__file__)))
+
+            # if debug:
+            #     print('pycfile: ', pycfile)
+            #     print('   pycfile suffix: ', pycfile.suffix)
+            if not hasattr(mod, '__file__') and pycfile.suffix not in ['.pyc']:
+                continue
+            # if debug:
+            #     print('   pyc found')
         if prefix is not None and mod.__file__[:len(prefix)] != prefix:
             continue
         
         ## ignore if the .pyc is newer than the .py (or if there is no pyc or py)
-        py = os.path.splitext(mod.__file__)[0] + '.py'
-        pyc = py + 'c'
-        if py not in changed and os.path.isfile(pyc) and os.path.isfile(py) and os.stat(pyc).st_mtime >= os.stat(py).st_mtime:
-            #if debug:
-                #print "Ignoring module %s; unchanged" % str(mod)
+        py = Path(mod.__file__)  #os.path.splitext(mod.__file__)[0] + '.py'
+        pyc = Path(str(py) + 'c')
+        if py not in changed and pyc.is_file() and py.is_file() and pyc.stat().st_mtime >= py.stat().st_mtime:
+            # if debug:
+            #     print( "Ignoring module %s; unchanged" % str(mod))
             continue
         changed.append(py)  ## keep track of which modules have changed to insure that duplicate-import modules get reloaded.
         
         try:
-            reload(mod, debug=debug)
+            ok = reload(mod, debug=debug)
+            if ok:
+                print('Reloaded ', str(mod.__file__))
         except:
             printExc("Error while reloading module %s, skipping\n" % mod)
+            exit()
             failed.append(mod.__name__)
-    print('changed: ', changed)
+    # print('changed: ', changed)
     if len(failed) > 0:
         raise Exception("Some modules failed to reload: %s" % ', '.join(failed))
 
@@ -106,6 +123,9 @@ def reload(module, debug=False, lists=False, dicts=False):
     """
     if debug:
         print("Reloading %s" % str(module))
+    if hasattr(module, 'Qt') and module.__name__ not in ['acq4.Manager', 'acq4.util.DataManager', 'acq4.pyqrgraph']:
+        print('>> ', module, '\n Qt encountered - not reloading')
+        return False
         
     ## make a copy of the old module dictionary, reload, then grab the new module dictionary for comparison
     oldDict = module.__dict__.copy()
@@ -120,7 +140,7 @@ def reload(module, debug=False, lists=False, dicts=False):
     for k in oldDict:
         old = oldDict[k]
         new = newDict.get(k, None)
-        if old is new or new is None:
+        if (old is new) or (new is None):
             continue
         
         if inspect.isclass(old):
@@ -147,7 +167,7 @@ def reload(module, debug=False, lists=False, dicts=False):
             for k in old:
                 if k not in new:
                     del old[k]
-        
+    return True
 
 
 ## For functions:

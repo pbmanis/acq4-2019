@@ -22,7 +22,7 @@ deviceNames = {
 }
 
 # current and voltage clamp modes that are know to us
-ic_modes = ['IC', 'CC', 'IClamp', 'ic', 'I-Clamp Fast', 'I-Clamp Slow']
+ic_modes = [b'IC', 'IC', 'CC', 'IClamp', 'ic', 'I-Clamp Fast', 'I-Clamp Slow']
 vc_modes = ['VC', 'VClamp', 'vc']  # list of VC modes
 
 
@@ -390,8 +390,13 @@ def getBridgeBalanceCompensation(data_handle):
         raise Exception('%s not a clamp file.' % data)
 
 
-    mode = getClampMode(data)
+    mode = getClampMode(data).decode('utf-8').replace("'", "")
     global ic_modes
+    # print(dir(ic_modes[0]))
+    # print(dir(mode))
+    # for ic in ic_modes:
+    #     print(ic, mode, mode==ic)
+    #     print(type(ic), type(mode))
     if mode not in ic_modes:
         raise Exception("Data is in %s mode, not a current clamp mode, and therefore bridge balance compensation is not applicable." %str(mode))
 
