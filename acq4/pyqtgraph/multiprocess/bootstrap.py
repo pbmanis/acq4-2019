@@ -5,10 +5,10 @@ if __name__ == '__main__':
     if hasattr(os, 'setpgrp'):
         os.setpgrp()  ## prevents signals (notably keyboard interrupt) being forwarded from parent to this process
     if sys.version[0] == '3':
-        #name, port, authkey, ppid, targetStr, path, pyside = pickle.load(sys.stdin.buffer)
+        # print('sys version = 3')#name, port, authkey, ppid, targetStr, path, pyside = pickle.load(sys.stdin.buffer)
         opts = pickle.load(sys.stdin.buffer)
     else:
-        #name, port, authkey, ppid, targetStr, path, pyside = pickle.load(sys.stdin)
+        # print('sys version: ', sys.version[0]) #name, port, authkey, ppid, targetStr, path, pyside = pickle.load(sys.stdin)
         opts = pickle.load(sys.stdin)
     #print "key:",  ' '.join([str(ord(x)) for x in authkey])
     path = opts.pop('path', None)
