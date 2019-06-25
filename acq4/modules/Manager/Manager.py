@@ -65,7 +65,7 @@ class Manager(Module):
             self.win.setGeometry(geom)
         # restore dock configuration
         if 'window' in state:
-            ws = Qt.QByteArray.fromPercentEncoding(state['window'])
+            ws = Qt.QByteArray.fromPercentEncoding(bytes(state['window'], encoding='utf-8'))
             self.win.restoreState(ws)
 
         self.win.show()
