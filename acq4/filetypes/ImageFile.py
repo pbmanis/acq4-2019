@@ -4,10 +4,10 @@ from __future__ import print_function
 from PIL import Image
 
 ## Install support for 16-bit images in PIL
-if Image.VERSION == '1.1.7':
+if Image.__version__ == '1.1.7':
     Image._MODE_CONV["I;16"] = ('%su2' % Image._ENDIAN, None)
     Image._fromarray_typemap[((1, 1), "<u2")] = ("I", "I;16")
-if Image.VERSION == '1.1.6':
+if Image.__version__ == '1.1.6':
     Image._MODE_CONV["I;16"] = ('%su2' % Image._ENDIAN, None)
     ## just a copy of fromarray() from Image.py with I;16 added in
     def fromarray(obj, mode=None):
