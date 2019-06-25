@@ -69,6 +69,7 @@ class Process(RemoteEventHandler):
             target = startEventLoop
         if name is None:
             name = str(self)
+        executable = None
         if executable is None:
             executable = sys.executable
         self.debug = 7 if debug is True else False  # 7 causes printing in white
@@ -94,6 +95,7 @@ class Process(RemoteEventHandler):
             modroot = sys.modules[mod.__name__.split('.')[0]]
             sysPath = os.path.abspath(os.path.join(os.path.dirname(modroot.__file__), '..'))
         bootstrap = os.path.abspath(os.path.join(os.path.dirname(__file__), 'bootstrap.py'))
+        print('Starting child process (%s %s)' % (executable, bootstrap))
         self.debugMsg('Starting child process (%s %s)' % (executable, bootstrap))
 
         # Decide on printing color for this process
