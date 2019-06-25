@@ -398,7 +398,7 @@ class TaskRunner(Module):
                 printExc("Error while closing dock '%s':" % d)
         self.docks = {}
 
-        for d in self.analysisDocks.keys()[:]:
+        for d in list(self.analysisDocks.keys()):
             self.removeAnalysisDock(d)
 
         self.ui.sequenceParamList.clear()
