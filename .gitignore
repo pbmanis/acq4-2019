@@ -1,12 +1,12 @@
 *.pyc
 *~
 *.renamed*
-# *template.py
-# *template_pyqt5.py
-# *template_pyside.py
-# *Template.py
-# *Template_pyqt5.py
-# *Template_pyside.py
+**/*template.py
+**/*template_pyqt5.py
+**/*template_pyside.py
+**/*Template.py
+**/*Template_pyqt5.py
+**/*Template_pyside.py
 MANIFEST
 dist
 build
