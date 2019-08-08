@@ -1,0 +1,41 @@
+pos: (0.0, 0.0)
+bypass: False
+terminals:
+    Input:
+        io: 'in'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+    Output:
+        io: 'out'
+        multi: False
+        optional: False
+        renamable: False
+        removable: False
+        multiable: False
+nodes: [{'class': 'ButterworthFilter', 'name': 'ButterworthFilter.0', 'pos': (-647.0552218276582, 44.937853453966), 'state': {'pos': (-647.0552218276582, 44.937853453966), 'bypass': False, 'ctrl': {'band': 'lowpass', 'wPass': 1000.0, 'wStop': 2000.0, 'gPass': 2.0, 'gStop': 40.0, 'bidir': False}}}, {'class': 'ColumnSelect', 'name': 'ColumnSelect.0', 'pos': (-644.6554733830935, -58.220017860109024), 'state': {'pos': (-644.6554733830935, -58.220017860109024), 'bypass': False, 'columns': ['primary']}}, {'class': 'PythonEval', 'name': 'ReadFile', 'pos': (-641.0039010731207, -172.1651739285519), 'state': {'pos': (-641.0039010731207, -172.1651739285519), 'bypass': False, 'terminals': OrderedDict([('input', {'io': 'in', 'multi': False, 'optional': False, 'renamable': True, 'removable': False, 'multiable': False}), ('output', {'io': 'out', 'multi': False, 'optional': False, 'renamable': True, 'removable': False, 'multiable': False})]), 'text': "# Access inputs as args['input_name']\nreturn {'output': args['input']['MultiClamp1.ma'].read()} ## one key per output terminal\n"}}, {'class': 'RegionSelect', 'name': 'RegionSelect.0', 'pos': (-528.0365607553027, -176.69893457585812), 'state': {'pos': (-528.0365607553027, -176.69893457585812), 'bypass': False, 'ctrl': {'start': 0.0294653413873, 'stop': 0.592395971269, 'display': True, 'movable': True}}}, {'class': 'PlotWidget', 'name': 'PlotWidget.1', 'pos': (61.07708073690435, -33.31477131103867), 'state': {'pos': (61.07708073690435, -33.31477131103867), 'bypass': False}}, {'class': 'PlotWidget', 'name': 'PlotWidget.0', 'pos': (275.4021095045864, -256.52373909499795), 'state': {'pos': (275.4021095045864, -256.52373909499795), 'bypass': False}}]
+connects: [('ButterworthFilter.0', 'Out', 'PlotWidget.1', 'In'), ('ReadFile', 'output', 'ColumnSelect.0', 'In'), ('ColumnSelect.0', 'primary', 'ButterworthFilter.0', 'In')]
+inputNode:
+    pos: (-649.1263671039807, -287.48384487479865)
+    bypass: False
+    terminals:
+        Input:
+            io: 'out'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
+outputNode:
+    pos: (158.95671835484666, -144.18842957248285)
+    bypass: False
+    terminals:
+        Output:
+            io: 'in'
+            multi: False
+            optional: False
+            renamable: False
+            removable: False
+            multiable: False
