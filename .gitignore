@@ -11,3 +11,7 @@ acq4.egg-info
 config/*
 !config/example/
 crash.log
+*template_pyside.py
+*template_pyqt5.py
+*Template.py
+
