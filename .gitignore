@@ -1,3 +1,10 @@
+# To ignore the template files:
+# update this .gitignore if needed
+# git rm -r --cached . (run with -n first to see what happens)
+# git add .  # add everything back
+# git status  # should show all the needed files that are not excluded here
+# git commit -m "message for the commit"
+#  
 *.pyc
 *~
 *.renamed*
