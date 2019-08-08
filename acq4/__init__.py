@@ -60,7 +60,7 @@ def messageHandler(*args):
     else:               # Qt5
         msgType, context, msg = args
     # ignore harmless ibus messages on linux
-    if b'ibus-daemon' in msg:
+    if 'ibus-daemon' in msg:
         return
     import traceback
     print("Qt Error: (traceback follows)")
