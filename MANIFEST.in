@@ -1,3 +1,0 @@
-recursive-include acq4 *.py *.ui *.m README *.txt *.h *.cache
-recursive-include config *
-include README.md LICENSE.txt bin/acq4
