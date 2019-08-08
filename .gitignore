@@ -1,6 +1,10 @@
 *.pyc
 *~
 *.renamed*
+**template_pyside.py
+**template_pyqt5.py
+**Template.py
+**Template_pyqt5.py
 MANIFEST
 dist
 build
@@ -11,7 +15,6 @@ acq4.egg-info
 config/*
 !config/example/
 crash.log
-*template_pyside.py
-*template_pyqt5.py
-*Template.py
+
+
 
