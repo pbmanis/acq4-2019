@@ -490,6 +490,11 @@ class IVCurve(AnalysisModule):
         if ci is None:
             return False
         self.ctrl.IVCurve_dataMode.setText(self.Clamps.data_mode)
+
+        # handle current offset
+        if self.ctrl.IVCurve_SubBaseline.isChecked():
+            holding = self.Clamps.holding
+            self.Clamps.commandLevels -= holding
         # self.bridgeCorrection = 200e6
 
         # print 'bridge: ', bridge
@@ -837,8 +842,8 @@ class IVCurve(AnalysisModule):
                 continue
             trspikes = OrderedDict()
             if printSpikeInfo:
-                print(np.array(self.Clamps.values))
-                print(len(self.Clamps.traces))
+                print('clamp values: ', np.array(self.Clamps.values))
+                print('# traces: ', len(self.Clamps.traces))
             (rmp[i], r2) = Utility.measure('mean', self.Clamps.time_base, self.Clamps.traces[i],
                                            0.0, self.Clamps.tstart)            
             (iHold[i], r2) = Utility.measure('mean', self.Clamps.time_base, self.Clamps.cmd_wave[i],
@@ -985,21 +990,22 @@ class IVCurve(AnalysisModule):
         # figure out "threshold" for spike, get 150% and 300% points.
         nsp = []
         icmd = []
-        print (self.spikeShape.keys())
+        # print ('spike shape: ', self.spikeShape.keys())
         for m in sorted(self.spikeShape.keys()):
             n = len(self.spikeShape[m].keys()) # number of spikes in the trace
             if n > 0:
                 nsp.append(len(self.spikeShape[m].keys()))
                 icmd.append(self.spikeShape[m][0]['current'])
-        try:
+        if len(icmd) == 0: # no spikes
+            iacmdthr = np.nan
+            ia150cmdthr = np.nan
+        else:
             iamin = np.argmin(icmd)
-        except:
-            raise ValueError('IVCurve:getIVCurrentThresholds - icmd seems to be ? : ', icmd)
-        imin = np.min(icmd)
-        ia150 = np.argmin(np.abs(1.5*imin-np.array(icmd)))
-        iacmdthr = np.argmin(np.abs(imin-self.Clamps.values))
-        ia150cmdthr = np.argmin(np.abs(icmd[ia150] - self.Clamps.values))
-        #print 'thr indices and values: ', iacmdthr, ia150cmdthr, self.Clamps.values[iacmdthr], self.Clamps.values[ia150cmdthr]
+            imin = np.min(icmd)
+            ia150 = np.argmin(np.abs(1.5*imin-np.array(icmd)))
+            iacmdthr = np.argmin(np.abs(imin-self.Clamps.values))
+            ia150cmdthr = np.argmin(np.abs(icmd[ia150] - self.Clamps.values))
+            #print 'thr indices and values: ', iacmdthr, ia150cmdthr, self.Clamps.values[iacmdthr], self.Clamps.values[ia150cmdthr]
         return (iacmdthr, ia150cmdthr)  # return threshold indices into self.Clamps.values array at threshold and 150% point
     
     def getClassifyingInfo(self):
@@ -1009,37 +1015,41 @@ class IVCurve(AnalysisModule):
         """
  
         (jthr, j150) = self.getIVCurrentThresholds()  # get the indices for the traces we need to pull data from
+        if jthr == np.nan or j150 == np.nan:  # probably no spikes
+            return
         if jthr == j150:
             print('\n%s:' % self.filename)
             print('Threshold current T and 1.5T the same: using next up value for j150')
-            print('jthr, j150, len(spikeShape): ', jthr, j150, len(self.spikeShape))
-            print('1 ', self.spikeShape[jthr][0]['current']*1e12)
-            print('2 ', self.spikeShape[j150+1][0]['current']*1e12)
-            print(' >> Threshold current: %8.3f   1.5T current: %8.3f, next up: %8.3f' % (self.spikeShape[jthr][0]['current']*1e12,
-                  self.spikeShape[j150][0]['current']*1e12, self.spikeShape[j150+1][0]['current']*1e12))
+            # print('jthr, j150, len(spikeShape): ', jthr, j150, len(self.spikeShape))
+            # print('1 ', self.spikeShape[jthr][0]['current']*1e12)
+            if j150+2 < len(self.spikeShape):
+                print('2 ', self.spikeShape[j150+1][0]['current']*1e12)
+                print(' >> Threshold current: %8.3f   1.5T current: %8.3f, next up: %8.3f' % (self.spikeShape[jthr][0]['current']*1e12,
+                      self.spikeShape[j150][0]['current']*1e12, self.spikeShape[j150+1][0]['current']*1e12))
             j150 = jthr + 1
-        if len(self.spikeShape[j150]) >= 1 and self.spikeShape[j150][0]['halfwidth'] is not None:
+        if j150 < len(self.spikeShape) and len(self.spikeShape[j150]) >= 1 and self.spikeShape[j150][0]['halfwidth'] is not None:
             self.analysis_summary['AP1_Latency'] = (self.spikeShape[j150][0]['AP_Latency'] - self.spikeShape[j150][0]['tstart'])*1e3
             self.analysis_summary['AP1_HalfWidth'] = self.spikeShape[j150][0]['halfwidth']*1e3
         else:
             self.analysis_summary['AP1_Latency'] = np.inf
             self.analysis_summary['AP1_HalfWidth'] = np.inf
         
-        if len(self.spikeShape[j150]) >= 2 and self.spikeShape[j150][1]['halfwidth'] is not None:
+        if j150 < len(self.spikeShape) and len(self.spikeShape[j150]) >= 2 and self.spikeShape[j150][1]['halfwidth'] is not None:
             self.analysis_summary['AP2_Latency'] = (self.spikeShape[j150][1]['AP_Latency'] - self.spikeShape[j150][1]['tstart'])*1e3
             self.analysis_summary['AP2_HalfWidth'] = self.spikeShape[j150][1]['halfwidth']*1e3
         else:
             self.analysis_summary['AP2_Latency'] = np.inf
             self.analysis_summary['AP2_HalfWidth'] = np.inf
         
-        rate = len(self.spikeShape[j150])/self.spikeShape[j150][0]['pulseDuration']  # spikes per second, normalized for pulse duration
-        # first AHP depth
-        # print 'j150: ', j150
-        # print self.spikeShape[j150][0].keys()
-        # print self.spikeShape[j150]
-        AHPDepth = self.spikeShape[j150][0]['AP_beginV'] - self.spikeShape[j150][0]['trough_V']
-        self.analysis_summary['FiringRate'] = rate
-        self.analysis_summary['AHP_Depth'] = AHPDepth*1e3  # convert to mV
+        if j150 < len(self.spikeShape):
+            rate = len(self.spikeShape[j150])/self.spikeShape[j150][0]['pulseDuration']  # spikes per second, normalized for pulse duration
+            # first AHP depth
+            # print 'j150: ', j150
+            # print self.spikeShape[j150][0].keys()
+            # print self.spikeShape[j150]
+            AHPDepth = self.spikeShape[j150][0]['AP_beginV'] - self.spikeShape[j150][0]['trough_V']
+            self.analysis_summary['FiringRate'] = rate
+            self.analysis_summary['AHP_Depth'] = AHPDepth*1e3  # convert to mV
         # pprint.pprint(self.analysis_summary)
         # except:
         #     raise ValueError ('Failed Classification for cell: %s' % self.filename)
@@ -1130,9 +1140,10 @@ class IVCurve(AnalysisModule):
     def show_tau_plot(self):
         Fits = Fitting.Fitting()
         fitPars = self.taupars
-        xFit = np.zeros((len(self.taupars), 500))
+        nfitpts = 500
+        xFit = np.zeros((len(self.taupars), nfitpts))
         for i in range(len(self.taupars)):
-          xFit[i,:] = np.arange(0, self.tauwin[1]-self.tauwin[0], (self.tauwin[1]-self.tauwin[0])/500.)
+          xFit[i,:] = np.linspace(0., self.tauwin[1]-self.tauwin[0], nfitpts)
         yFit = np.zeros((len(fitPars), xFit.shape[1]))
         fitfunc = Fits.fitfuncmap[self.taufunc]
         if len(self.tau_fits.keys()) > 0:
@@ -1309,14 +1320,15 @@ class IVCurve(AnalysisModule):
             # Steady-state IV where there are no spikes
             self.ivss = self.ivss[self.nospk]
             self.ivss_cmd = self.Clamps.commandLevels[self.nospk]
+            # print('holding: ', holding)
+            # print('ivss cmd: ', self.ivss_cmd)
 #            self.commandLevels = commands[self.nospk]
             # compute Rin from the SS IV:
             # this makes the assumption that:
             # successive trials are in order (as are commands)
             # commands are not repeated...
-            if len(self.ivss_cmd) > 0 and len(self.ivss) > 0:
-                self.r_in = np.max(np.diff
-                                   (self.ivss) / np.diff(self.ivss_cmd))
+            if len(self.ivss_cmd) > 1 and len(self.ivss) > 1:
+                self.r_in = np.max(np.diff(self.ivss) / np.diff(self.ivss_cmd))
                 self.ctrl.IVCurve_Rin.setText(u'%9.1f M\u03A9'
                                               % (self.r_in * 1.0e-6))
                 self.analysis_summary['Rin'] = self.r_in*1.0e-6
@@ -1665,7 +1677,7 @@ class IVCurve(AnalysisModule):
         # summary table header is written anew for each cell
         htxt = ''
         if script_header:
-            htxt = '{:34s}\t{:15s}\t{:24s}\t'.format("Cell", "Genotype", "Protocol")
+            htxt = f"{'Cell':34s}\t{'Genotype':15s}\t{'Protocol':24s}\t"
             for k in data_template.keys():
                 cnv = '{:<%ds}' % (data_template[k][0])
                 # print 'cnv: ', cnv
@@ -1676,8 +1688,7 @@ class IVCurve(AnalysisModule):
         ltxt = ''
         if 'Genotype' not in self.analysis_summary.keys():
             self.analysis_summary['Genotype'] = 'Unknown'
-        ltxt += '{:34s}\t{:15s}\t{:24s}\t'.format(self.analysis_summary['CellID'], self.analysis_summary['Genotype'], self.analysis_summary['Protocol'])
-          
+        ltxt += f"{self.analysis_summary['CellID']:34s}\t{self.analysis_summary['Genotype']:15s}\t{self.analysis_summary['Protocol']:24s}\t"
         for a in data_template.keys():
             if a in self.analysis_summary.keys():
                 txt = self.analysis_summary[a]
