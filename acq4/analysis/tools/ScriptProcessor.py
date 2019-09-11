@@ -31,6 +31,7 @@ class ScriptProcessor(AnalysisModule):
     
     def __init__(self, host):
         AnalysisModule.__init__(self, host)
+        self.textout = ''
 
     def setAnalysis(self, analysis=None, fileloader=None, template=None, clamps=None, printer=None, dbupdate=None):
         """
@@ -148,7 +149,7 @@ class ScriptProcessor(AnalysisModule):
             return
         # settext = self.scripts_form.PSPReversal_ScriptResults_text.setPlainText
         # apptext = self.scripts_form.PSPReversal_ScriptResults_text.appendPlainText
-        self.textout = ('\nScript File: {:<32s}\n'.format(self.script_name))
+        self.textout = f"\nScript File: {self.script_name:<32s}\n"
         # settext(self.textout)
         script_header = True  # reset the table to a print new header for each cell
         trailingchars = [c for c in map(chr, range(97, 123))]  # trailing chars used to identify different parts of a cell's data
