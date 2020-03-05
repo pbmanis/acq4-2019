@@ -691,7 +691,7 @@ class TableData:
         return TableData({k:v[:] for k,v in self.data.items()})
         
     def __getitem__(self, idx):
-        print('getitem data: ', self.data)
+        # print('getitem data: ', self.data)
         if idx in self.data:
             return(self.data[idx])
         else:

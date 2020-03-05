@@ -78,7 +78,7 @@ class AnalysisDatabase(SqliteDatabase):
             
     def _convertDB(self, dbFile, version):
         ## Convert datbase dbFile from version to the latest version
-        
+        return
         newFileName = dbFile+"version_upgrade"
         if os.path.exists(newFileName):
             raise Exception("A .version_upgrade for %s already exists. Please delete or rename it" %dbFile)
@@ -352,7 +352,7 @@ class AnalysisDatabase(SqliteDatabase):
             else:
                 ## check table for ownership
                 if self.tableOwner(table) != owner:
-                    raise Exception("Table %s is not owned by %s." % (table, owner))
+                    raise Exception(f"Table {table:s} is not owned by {owner:s} but by: {self.tableOwner(table):s}.")
                 
                 ## check table for correct columns
                 ts = self.tableSchema(table)
