@@ -5,7 +5,7 @@
 # git status  # should show all the needed files that are not excluded here
 # git commit -m "message for the commit"
 #
-env/**  # any pip environment. 
+/env  # any pip environment. 
 *.pyc
 *~
 *.renamed*
