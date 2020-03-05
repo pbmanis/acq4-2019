@@ -51,7 +51,6 @@ class FileAnalysisView(Qt.QWidget):
         self.ui.analysisModuleList.currentItemChanged.connect(self.showModuleDescription)
         self.ui.analysisModuleList.itemDoubleClicked.connect(self.loadModule)
         self.ui.databaseCombo.currentIndexChanged.connect(self.dbComboChanged)
-        
 
     def openDbClicked(self):
         bd = self.man.getBaseDir()
@@ -69,10 +68,10 @@ class FileAnalysisView(Qt.QWidget):
         fileName = str(fileName)
         if fileName == '':
             return
-        
         #if not fileName[-7:] == '.sqlite' and '.' not in fileName:
         #    fileName =+ '.sqlite'
         self.ui.databaseCombo.blockSignals(True)
+
         try:
             ## put fileName at the top of the list, write to disk
             files = [self.ui.databaseCombo.itemText(i) for i in range(self.ui.databaseCombo.count())]
@@ -165,10 +164,13 @@ class FileAnalysisView(Qt.QWidget):
         self.ui.dataModelCombo.addItem('Load...')
         mods = models.listModels()
         for m in mods:
+            print('m: ', m)
+            if m == '__pycache__':
+                continue
             self.ui.dataModelCombo.addItem(m)
-        if len(mods) == 1:
-            self.ui.dataModelCombo.setCurrentIndex(1)
-            self.loadModel()
+        # if len(mods) == 1:
+        self.ui.dataModelCombo.setCurrentIndex(1)
+        self.loadModel()
     
     def loadModel(self):
         if self.ui.dataModelCombo.currentIndex() == 0:
@@ -191,6 +193,7 @@ class FileAnalysisView(Qt.QWidget):
         if mod is None:
             return
         modName = str(mod.text())
-        cls = analysis.getModuleClass(modName)
-        doc = cls.__doc__
-        self.ui.modDescriptionText.setPlainText(doc)
+        modcls = analysis.getModuleClass(modName)
+        if modcls is not None:
+            doc = modcls.__doc__
+            self.ui.modDescriptionText.setPlainText(doc)

@@ -8,17 +8,23 @@ def listModules():
     for f in os.listdir(d):
         if os.path.isdir(os.path.join(d, f)):
             files.append(f)
-        elif f[-3:] == '.py' and f != '__init__.py':
+        elif f[-3:] == '.py' and f != '__init__.py' and f != '__pycache__':
             files.append(f[:-3])
     files.sort()
     return files
     
 def getModuleClass(modName):
     mod = __import__('acq4.analysis.modules.'+modName, fromlist=['*'])
-    cls = getattr(mod, modName)
+    try:
+        modcls = getattr(mod, modName)
+    except:
+        modcls = None
     #print id(cls)
-    return cls
+    return modcls
 
 def load(modName, host):
-    cls = getModuleClass(modName)
-    return cls(host)
+    modcls = getModuleClass(modName)
+    if modcls is not None:
+        return modcls(host)
+    else:
+        return None

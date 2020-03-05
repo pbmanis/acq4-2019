@@ -392,7 +392,11 @@ def getBridgeBalanceCompensation(data_handle):
         raise Exception('%s not a clamp file.' % data)
 
 
-    mode = getClampMode(data).decode('utf-8').replace("'", "")
+    try:
+        mode = getClampMode(data).decode('utf-8').replace(b"'", b"")
+    except:
+        mode = getClampMode(data).replace("'", "")
+        
     global ic_modes
     # print(dir(ic_modes[0]))
     # print(dir(mode))

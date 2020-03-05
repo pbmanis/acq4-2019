@@ -168,6 +168,8 @@ class DataManager(Module):
     def selectedFile(self):
         """Return the currently selected file"""
         items = self.ui.fileTreeWidget.selectedItems()
+        # print('DataManagerModule: selected file items: ', items)
+        
         if len(items) > 0:
             return items[0].handle
         else:
@@ -241,6 +243,7 @@ class DataManager(Module):
         
     def loadFile(self, fh):
         if fh is None:
+            print('loadfile with fh none')
             self.ui.fileInfo.setCurrentFile(None)
             self.ui.dataViewWidget.setCurrentFile(None)
             self.ui.logWidget.selectedFileChanged(None)
@@ -254,10 +257,14 @@ class DataManager(Module):
             n = self.ui.fileDisplayTabs.currentIndex()
         fh = self.selectedFile()
         if n == 0:
+            print('tabChanged: ', n)
+            print('fh: ', fh)
             self.ui.fileInfo.setCurrentFile(fh)
         elif n == 1:
+            # print('tabChanged: ', n)
             self.ui.logWidget.selectedFileChanged(fh)
         elif n == 2:
+            # print('tabChanged: ', n)
             self.ui.dataViewWidget.setCurrentFile(fh)
 
     def selectedFileAltered(self, name, change, args):
