@@ -242,6 +242,7 @@ class EvalNode(Node):
         except:
             print("Error processing node: %s" % self.name())
             raise
+        print('output: ', output)
         return output
         
     def saveState(self):

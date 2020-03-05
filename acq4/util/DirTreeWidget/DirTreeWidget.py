@@ -10,7 +10,8 @@ import os
 class DirTreeWidget(Qt.QTreeWidget):
 
     sigSelectionChanged = Qt.Signal(object)
-    ### something funny is happening with sigSelectionChanged and currentItemChanged; the signals seem to be emitted before the DirTreeWidget actually knows that the item changed.
+    ### something funny is happening with sigSelectionChanged and currentItemChanged; 
+    ### The signals seem to be emitted *before* the DirTreeWidget actually knows that the item changed.
     ### ie. if a function is connected to the signal, and the function asks DirTreeWidget.selectedFile() the previously selected file is returned, not the new selection.
     ### you can get around this by using the (current, previous) items that are passed with the currentItemChanged signal.
 
@@ -76,22 +77,29 @@ class DirTreeWidget(Qt.QTreeWidget):
 
     def selectionChanged(self, item=None, _=None):
         """Selection has changed; check to see whether currentDir item needs to be recolored"""
+        # print('acq4.util.dirtreewidget: selection changed, item: ', item)
         self.sigSelectionChanged.emit(self)
         if item is None:
             item = self.currentItem()
+            # print('  Item was none, so got currentItems: ', item)
         if not isinstance(item, FileTreeItem):
+            # print('  Not a FileTreeItem')
+            # print(len(item))
+            # print(item[0])
             return
 
         if self.handle(item) is self.currentDir:
             self.setStyleSheet('selection-background-color: #BB00BB;')
         else:
             self.setStyleSheet('')
+        # print('   acq4.util.dirtreewidget: stylesheet')
 
     def selectedFile(self):
         """Return the handle for the currently selected file.
         If no items are selected, return None.
         If multiple items are selected, raise an exception."""
         items = self.selectedItems()
+        # print('acq4.util.dirtreewidget: selectedFile, items: ', items)
         if len(items) == 0:
             return None
         if len(items) > 1:
@@ -200,8 +208,9 @@ class DirTreeWidget(Qt.QTreeWidget):
         dirs = dh.name(relativeTo=self.baseDir).split(os.path.sep)
         node = self.baseDir
         while len(dirs) > 0:
-            item = self.items[node]
-            item.setExpanded(True)
+            item = self.items.get[node]
+            if item is not None:
+                item.setExpanded(True)
             node = node[dirs.pop(0)] 
 
     def watch(self, handle):

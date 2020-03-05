@@ -13,6 +13,12 @@ import traceback
 import acq4.pyqtgraph as pg
 from acq4.pyqtgraph.util.mutex import Mutex, RecursiveMutex
 
+class PriorityMutex(object):
+    """A mutex that uses a priority-sorted queue to determine the order
+    in which lock requests are granted. 
+    Lock requests return a Future to support asynchronous as well as blocking
+    behavior.
+    """
 
 class ThreadsafeWrapper(object):
     """Wrapper that makes access to any object thread-safe (within reasonable limits).
