@@ -59,6 +59,7 @@ class MosaicEditor(AnalysisModule):
         self.ui.setupUi(self.ctrl)
         self.atlas = None
         self.canvas = Canvas(name='MosaicEditor')
+        self.hide = True # hide selection box
 
         self._elements_ = OrderedDict([
             ('File Loader', {'type': 'fileInput', 'size': (200, 300), 'host': self}),
@@ -111,6 +112,7 @@ class MosaicEditor(AnalysisModule):
         self.ui.mosaicApplyScaleBtn.clicked.connect(self.updateScaling)
         self.ui.mosaicFlipLRBtn.clicked.connect(self.flipLR)
         self.ui.mosaicFlipUDBtn.clicked.connect(self.flipUD)
+        self.ui.showHideBtn.clicked.connect(self.showHide)
 
         self.imageMax = 0.0
         
@@ -246,7 +248,24 @@ class MosaicEditor(AnalysisModule):
             return self.canvas.addGraphicsItem(item, **kwds)
         else:
             return self.canvas.addItem(item, type, **kwds)
-
+        
+    def showHide(self):
+        nsel =  len(self.canvas.selectedItems())
+        if nsel == 0:
+            return
+        self.lastvis = None
+        for i in range(nsel):
+            citem = self.canvas.selectedItems()[i]
+            vis = citem.isVisible()
+            if self.hide and vis:
+                citem.selectBox.hide()
+                self.lastvis = citem
+            elif not self.hide and not vis:
+                if self.lastvis == citem:
+                    citem.selectBox.show()  # only show the one that was last hidden
+        self.hide = not self.hide  # toggle mode
+            
+                
     def rescaleImages(self):
         """
         Apply corrections to the images and rescale the data.
@@ -460,7 +479,7 @@ class MosaicEditor(AnalysisModule):
         else:
             path = self.lastSaveFile
                 
-        filename = Qt.QFileDialog.getSaveFileName(None, "Save mosaic file", path, "Mosaic files (*.mosaic)")
+        filename = Qt.QFileDialog.getSaveFileName(None, "Save mosaic file", path, "Mosaic files (*.mosaic)")[0]
         if filename == '':
             return
         if not filename.endswith('.mosaic'):
