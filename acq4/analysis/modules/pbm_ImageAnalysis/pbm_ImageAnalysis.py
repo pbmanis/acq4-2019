@@ -40,9 +40,9 @@ from acq4.util.metaarray import MetaArray
 import numpy as np
 import scipy
 from . import ctrlTemplate
-import ctrlROIsTemplate
-import ctrlAnalysisTemplate
-import ctrlPhysiologyTemplate
+from . import ctrlROIsTemplate
+from . import ctrlAnalysisTemplate
+from . import ctrlPhysiologyTemplate
 from acq4.analysis.tools import Utility
 from acq4.analysis.tools import Fitting
 from acq4.analysis.tools import PlotHelpers as PH  # matlab plotting helpers
@@ -292,7 +292,7 @@ class pbm_ImageAnalysis(AnalysisModule):
     def processData(self):
         self.normData = []
         self.imageData = []
-        print('in processData...')
+        # print('in processData...')
         for img in self.rawData:
             print('doing image processdata')
             n = np.empty(img.shape, dtype=img.dtype)
