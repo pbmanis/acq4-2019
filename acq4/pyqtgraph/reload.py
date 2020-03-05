@@ -2,7 +2,6 @@
 """
 Magic Reload Library
 Luke Campagnola   2010
-
 Python reload function that actually works (the way you expect it to)
  - No re-importing necessary
  - Modules can be reloaded in any order
@@ -23,27 +22,16 @@ Does NOT:
 
 from __future__ import print_function
 import inspect, os, sys, gc, traceback, types
-from .debug import printExc
 from pathlib import Path
+from .debug import printExc
+try:
+    from importlib import reload as orig_reload
+except ImportError:
+    orig_reload = reload
+
+
+py3 = sys.version_info >= (3,)
 pyver = sys.version_info
-
-if pyver <= (2,):
-    rld = reload
-elif pyver <= (3,3):
-    import imp
-    rld = imp.reload
-elif pyver >= (3,4):
-    import importlib
-    rld = importlib.reload
-    
-else:
-    raise ImportError
-
-# try:
-#     from importlib import reload as orig_reload
-# except ImportError:
-#     orig_reload = reload
-
 
 def reloadAll(prefix=None, debug=False):
     """Automatically reload everything whose __file__ begins with prefix.
@@ -52,64 +40,62 @@ def reloadAll(prefix=None, debug=False):
     """
     failed = []
     changed = []
+    system_modules = set(sys.builtin_module_names)
+    loaded_modules = sys.modules
 
-    pyqt = []
-    for m in list(sys.modules.items()):
-        if m[0].startswith('PyQt'):
-            # print('module: ', m)
-            pyqt.append(m[0])
-
-    pyfiles = Path('.').glob('**/*.py')
-    pycfiles = Path('.').glob('**/*.pyc')
-    acq4files = list(pyfiles)
-    acq4files = [str(a) for a in acq4files]
-    # print('acq4files: ', acq4files)
-#     print('prefix: ', prefix)
-#     return
-#
     for modName, mod in list(sys.modules.items()):  ## don't use iteritems; size may change during reload
         if not inspect.ismodule(mod):
             continue
         if modName == '__main__':
             continue
-        # if modName in pyqt:
+        if modName in system_modules:
+            continue
+
+        # if not (modName.startswith('acq4.')):
         #     continue
-        if not modName.startswith('acq4.'): #  or modName.startswith('pyqtgraph.'):
-            continue
 
-        if pyver <= (2,) and not hasattr(mod, '__file__') and Path(mod.__file__).suffix not in ['.py', '.pyc']:
+        ## Ignore if the file name does not start with prefix
+        if not hasattr(mod, '__file__'):
             continue
-        elif pyver >= (3,4):
-            pycfile = Path(importlib.util.cache_from_source(Path(mod.__file__)))
-
-            # if debug:
-            #     print('pycfile: ', pycfile)
-            #     print('   pycfile suffix: ', pycfile.suffix)
-            if not hasattr(mod, '__file__') and pycfile.suffix not in ['.pyc']:
-                continue
-            # if debug:
-            #     print('   pyc found')
+        if mod.__file__ is None:
+            continue
+        if os.path.splitext(mod.__file__)[1] not in ['.py', '.pyc']:
+            continue
+        # print('mod.file: ', mod.__file__)
+        
         if prefix is not None and mod.__file__[:len(prefix)] != prefix:
+            # print('    bad prefix')
             continue
         
         ## ignore if the .pyc is newer than the .py (or if there is no pyc or py)
-        py = Path(mod.__file__)  #os.path.splitext(mod.__file__)[0] + '.py'
-        pyc = Path(str(py) + 'c')
-        if py not in changed and pyc.is_file() and py.is_file() and pyc.stat().st_mtime >= py.stat().st_mtime:
-            # if debug:
-            #     print( "Ignoring module %s; unchanged" % str(mod))
+        py = os.path.splitext(mod.__file__)[0] + '.py'
+        if not os.path.isfile(py):
+            # skip modules that lie about their __file__
+            # print('    skipping : ', py)
+            continue
+        p_parent = Path(py).parent
+        p_stem = Path(py).stem
+        if py3: # insert pycache directory
+            pyc = Path(p_parent, '__pycache__', p_stem + '.cpython-%d%d.pyc' % (pyver[0], pyver[1])) # different location
+        else:
+            pyc = py + 'c'
+        pyc = str(pyc)
+        # print('pycfile: ', pyc)
+        # print(os.path.isfile(pyc), os.stat(pyc).st_mtime, os.stat(py).st_mtime)
+        if py not in changed and os.path.isfile(pyc) and (os.stat(pyc).st_mtime >= os.stat(py).st_mtime):
+            # print('    unchanged: ',py )#if debug:
+                #print "Ignoring module %s; unchanged" % str(mod)
             continue
         changed.append(py)  ## keep track of which modules have changed to insure that duplicate-import modules get reloaded.
-        
+        # print('    *** File changed: ', py)
+
         try:
-            ok = reload(mod, debug=debug)
-            if ok:
-                print('Reloaded ', str(mod.__file__))
+            reload(mod, debug=debug)
+            print('Reloaded: ', modName)
         except:
             printExc("Error while reloading module %s, skipping\n" % mod)
-            exit()
             failed.append(mod.__name__)
-    # print('changed: ', changed)
+        
     if len(failed) > 0:
         raise Exception("Some modules failed to reload: %s" % ', '.join(failed))
 
@@ -123,13 +109,10 @@ def reload(module, debug=False, lists=False, dicts=False):
     """
     if debug:
         print("Reloading %s" % str(module))
-    if hasattr(module, 'Qt') and module.__name__ not in ['acq4.Manager', 'acq4.util.DataManager', 'acq4.pyqrgraph']:
-        print('>> ', module, '\n Qt encountered - not reloading')
-        return False
         
     ## make a copy of the old module dictionary, reload, then grab the new module dictionary for comparison
     oldDict = module.__dict__.copy()
-    rld(module)
+    orig_reload(module)
     newDict = module.__dict__
     
     ## Allow modules access to the old dictionary after they reload
@@ -140,7 +123,7 @@ def reload(module, debug=False, lists=False, dicts=False):
     for k in oldDict:
         old = oldDict[k]
         new = newDict.get(k, None)
-        if (old is new) or (new is None):
+        if old is new or new is None:
             continue
         
         if inspect.isclass(old):
@@ -167,7 +150,7 @@ def reload(module, debug=False, lists=False, dicts=False):
             for k in old:
                 if k not in new:
                     del old[k]
-    return True
+        
 
 
 ## For functions:
@@ -252,7 +235,7 @@ def updateClass(old, new, debug):
     ## but it fixes a few specific cases (pyqt signals, for one)
     for attr in dir(old):
         oa = getattr(old, attr)
-        if ((pyver > (3,)) and inspect.isfunction(oa)) or inspect.ismethod(oa):
+        if (py3 and inspect.isfunction(oa)) or inspect.ismethod(oa):
             # note python2 has unbound methods, whereas python3 just uses plain functions
             try:
                 na = getattr(new, attr)
@@ -363,7 +346,6 @@ class A(object):
     def fn(self, pfx = ""):
         print(pfx+"A class: %%s %%s" %% (str(self.__class__), str(id(self.__class__))))
         print(pfx+"  %%s: %d" %% self.msg)
-
 class B(A):
     def fn(self, pfx=""):
         print(pfx+"B class:", self.__class__, id(self.__class__))
@@ -376,7 +358,6 @@ class B(A):
     modCode2 = """
 from test1.test1 import A
 from test1.test1 import B
-
 a1 = A("ax1")
 b1 = B("bx1")
 class C(A):
