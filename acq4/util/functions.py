@@ -2242,13 +2242,14 @@ def measureResistanceWithExponentialFit(data, debug=False):
         debug     Default: False. If True, include extra intermediary calculated values in the dictionary that is returned. 
 
     """
-
-
     cmd = data['command']
-
-    pulseStart = cmd.axisValues('Time')[np.argwhere(cmd != cmd[0])[0][0]]
-    pulseStop = cmd.axisValues('Time')[np.argwhere(cmd != cmd[0])[-1][0]]
-
+    cmddiff = np.argwhere(cmd != cmd[0])
+    if len(cmddiff) == 0:
+        pulseStart = np.argmin(cmd.axisValues('Time')-0.225)
+        pulseStop = np.argmin(cmd.axisValues('Time')-0.275)
+    else:
+        pulseStart = cmd.axisValues('Time')[cmddiff[0][0]]
+        pulseStop = cmd.axisValues('Time')[cmddiff[-1][0]] # np.argwhere(cmd != cmd[0])[-1][0]]
     baseline = data['Time':0:pulseStart]['primary']
     baseline = measureBaseline(baseline)
 
