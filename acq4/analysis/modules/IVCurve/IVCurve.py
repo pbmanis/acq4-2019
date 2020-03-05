@@ -765,6 +765,10 @@ class IVCurve(AnalysisModule):
             print('IVCurve::analyzeSpikes: Cannot count spikes, ' +
                   'and dataMode is ', self.Clamps.data_mode, 'and ICModes are: ', self.dataModel.ic_modes, '\nTime base: \n', self.Clamps.time_base)
             self.spikecount = []
+            self.nospk = np.ones_like(self.Clamps.values).tolist()
+            self.spk = np.zeros_like(self.Clamps.values).tolist()
+            self.analysis_summary['FI_Curve'] = np.zeros_like(self.Clamps.values).tolist()
+            self.spikes_counted = True  # not really, but there are no spikes...
             self.fiPlot.plot(x=[], y=[], clear=clearFlag, pen='w',
                              symbolSize=6, symbolPen='b',
                              symbolBrush=(0, 0, 255, 200), symbol='s')
@@ -1318,8 +1322,11 @@ class IVCurve(AnalysisModule):
 
         if len(self.nospk) >= 1:
             # Steady-state IV where there are no spikes
-            self.ivss = self.ivss[self.nospk]
-            self.ivss_cmd = self.Clamps.commandLevels[self.nospk]
+            if self.Clamps.data_mode in self.dataModel.ic_modes:
+                self.ivss = self.ivss[self.nospk]
+                self.ivss_cmd = self.Clamps.commandLevels[self.nospk]
+            else:
+                self.ivss_cmd = self.Clamps.commandLevels
             # print('holding: ', holding)
             # print('ivss cmd: ', self.ivss_cmd)
 #            self.commandLevels = commands[self.nospk]
