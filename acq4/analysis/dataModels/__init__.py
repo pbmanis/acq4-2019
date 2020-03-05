@@ -8,7 +8,7 @@ def listModels():
     for f in os.listdir(d):
         if os.path.isdir(os.path.join(d, f)):
             files.append(f)
-        elif f[-3:] == '.py' and f != '__init__.py':
+        elif f[-3:] == '.py' and f != '__init__.py' and f != '__pycache__':
             files.append(f[:-3])
     return files
     
