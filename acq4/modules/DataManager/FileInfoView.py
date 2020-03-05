@@ -36,23 +36,28 @@ class FileInfoView(Qt.QWidget):
         self.focusEventCatcher = FocusEventCatcher()
         self.focusEventCatcher.sigLostFocus.connect(self.focusLost)
         
-    def setCurrentFile(self, file):
+    def setCurrentFile(self, fileobj):
         #print "=============== set current file ============"
-        if file is self.current:
+        print('self.current: ', self.current)
+        print('fileobj: ', fileobj)
+        if fileobj == self.current:
+            print('File is current')
             return
             
-        if file is None:
+        if fileobj is None:
+            print('file is None!!!')
+            fileobj = self.current  # reset to the current file
             self.clear()
             self.current = None
             return
-        
-        self.current = file
+        print('fileobj is ok: ', fileobj)
+        self.current = fileobj
         self.clear()
         
         ## Decide on the list of fields to display
-        info = file.info()
+        info = fileobj.info()
         infoKeys = list(info.keys())
-        fields = self.manager.suggestedDirFields(file)
+        fields = self.manager.suggestedDirFields(fileobj)
         
         ## Generate fields, populate if data exists
         #print "Add %d rows.." % len(fields)
@@ -116,7 +121,7 @@ class FileInfoView(Qt.QWidget):
                 s = str(info[f])
                 if isinstance(f, six.string_types) and 'time' in f.lower() and info[f] > 1e9 and info[f] < 2e9:  ## probably this is a timestamp
                     try:
-                        t0 = file.parent().info()['__timestamp__']
+                        t0 = fileobj.parent().info()['__timestamp__']
                         dt = " [elapsed = %0.3f s]" % (info[f] - t0)
                     except:
                         dt = ""
