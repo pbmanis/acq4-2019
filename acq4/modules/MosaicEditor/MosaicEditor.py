@@ -13,7 +13,7 @@ import acq4.util.debug as debug
 import acq4.pyqtgraph as pg
 from acq4.modules.Module import Module
 from acq4.analysis.AnalysisModule import AnalysisModule
-import pyqtgraph.Qt as Qt
+import acq4.pyqtgraph.Qt as Qt
 # from PyQt4 import QtGui, QtCore
 from .MosaicEditorTemplate import *
 import acq4.util.DataManager as DataManager
