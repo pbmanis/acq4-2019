@@ -25,7 +25,7 @@ parser.add_argument('pyversion', type=str, default='pyqt5', choices=['pyqt4', 'p
 parser.add_argument('-f', '--force', action='store_true',
                         help='Force')                    
 parser.add_argument('-d', '--directory', type=str, default=None, nargs='*',
-                        help='Starting directoyr')
+                        help='Starting directory')
 
 args = parser.parse_args()
 
