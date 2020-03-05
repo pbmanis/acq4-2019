@@ -68,10 +68,17 @@ for ui in uifiles:
         pass
         # print("Skipping %s; already compiled." % py)
     else:
-        cmd = '%s %s > %s' % (compilers[compiler], ui, pyshort)
+        cmd = '%s %s > %s' % (compilers[compiler], ui, pylong)
         print(cmd)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
             print('Failed to compile: ', pylong, pyshort)  # no support for that one
+            # os.remove(pylong)
+        cmd = '%s %s > %s' % (compilers[compiler], ui, pyshort)
+        print(cmd)
+        try:
+            subprocess.check_call(cmd, shell=True)
+        except subprocess.CalledProcessError:
+            print('Failed to compile: ', pyshort, pyshort)  # no support for that one
             # os.remove(pylong)
