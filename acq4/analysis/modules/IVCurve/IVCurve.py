@@ -19,13 +19,11 @@ import pprint
 import time
 import itertools
 import functools
-
 import numpy as np
 import scipy
 
 import acq4.pyqtgraph as pg
 from acq4.pyqtgraph.Qt import QtGui, QtCore, QAPP
-print(dir(pg.Qt.QAPP))
 from acq4.analysis.AnalysisModule import AnalysisModule
 
 import acq4.util.matplotlibexporter as matplotlibexporter
@@ -74,15 +72,15 @@ class IVCurve(AnalysisModule):
                 ("RMP", (5, "{:>5.1f}", 1.0)),
                 ("Rin", (5, "{:>5.1f}", 1.0)),
                 ("Bridge", (5, "{:>5.1f}", 1.0)),
-                ("tau", (5, "{:>5.1f}", 1.0)),
+                ("tau", (5, "{:>6.2f}", 1.0)),
                 ("AdaptRatio", (9, "{:>9.3f}", 1.0)),
                 ("tauh", (5, "{:>5.1f}", 1.0)),
-                ("Gh", (6, "{:>6.2f}", 1.0)),
+                ("Gh", (6, "{:>6.2f}", 1e9)),
                 ("FiringRate_1p5T", (12, "{:>9.1f}", 1.0)),
-                ("AP1_HalfWidth", (13, "{:>13.2f}", 1.0)),
-                ("AP1_Latency", (11, "{:>11.1f}", 1.0)),
-                ("AP2_HalfWidth", (13, "{:>13.2f}", 1.0)),
-                ("AP2_Latency", (11, "{:>11.1f}", 1.0)),
+                ("AP1_HalfWidth", (13, "{:>12.3f}", 1.0)),
+                ("AP1_Latency", (11, "{:>9.3f}", 1.0)),
+                ("AP2_HalfWidth", (13, "{:>12.3f}", 1.0)),
+                ("AP2_Latency", (11, "{:>9.3f}", 1.0)),
                 ("AHP_Depth", (9, "{:>9.2f}", 1.0)),
                 ("Fzero", (9, "{:>9.2f}", 1.0)),
                 ("Ibreak", (9, "{:>9.3f}", 1.0)),

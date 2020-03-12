@@ -393,7 +393,7 @@ class SpikeAnalysis:
             iamin = np.argmin(icmd)
         except:
             raise ValueError(
-                "IVCurve:getIVCurrentThresholds - icmd seems to be ? : ", icmd
+                "IVCurve:SpikeAnalysis:getIVCurrentThresholds - icmd seems to be ? : ", icmd
             )
         imin = np.min(icmd)
         ia150 = np.argmin(np.abs(1.5 * imin - np.array(icmd)))
