@@ -1,5 +1,6 @@
-from __future__ import print_function
-__author__ = 'pbmanis'
+
+
+__author__ = "pbmanis"
 """
 Copyright 2014  Paul Manis and Luke Campagnola
 Distributed under MIT/X11 license. See license.txt for more infomation.
@@ -10,11 +11,13 @@ import acq4.pyqtgraph as pg
 
 try:
     import matplotlib as MP
-    MP.use('Qt4Agg')
+
+    # MP.use("Qt4Agg")
     from matplotlib.ticker import FormatStrFormatter
     import matplotlib.pyplot as pylab
     import matplotlib.gridspec as gridspec
     import matplotlib.gridspec as GS
+
     HAVE_MPL = True
 except ImportError:
     HAVE_MPL = False
@@ -23,18 +26,18 @@ if HAVE_MPL:
     # MP.use('TKAgg')
     # Do not modify the following code
     # sets up matplotlib with sans-serif plotting...
-    pylab.rcParams['text.usetex'] = True
-    pylab.rcParams['interactive'] = False
-    pylab.rcParams['font.family'] = 'sans-serif'
-    pylab.rcParams['font.sans-serif'] = 'Arial'
-    pylab.rcParams['mathtext.default'] = 'sf'
-    pylab.rcParams['figure.facecolor'] = 'white'
+    pylab.rcParams["text.usetex"] = True
+    pylab.rcParams["interactive"] = False
+    pylab.rcParams["font.family"] = "sans-serif"
+    pylab.rcParams["font.sans-serif"] = "Arial"
+    pylab.rcParams["mathtext.default"] = "sf"
+    pylab.rcParams["figure.facecolor"] = "white"
     # next setting allows pdf font to be readable in Adobe Illustrator
-    pylab.rcParams['pdf.fonttype'] = 42
+    pylab.rcParams["pdf.fonttype"] = 42
     # pylab.rcParams['text.dvipnghack'] = True
     # to here (matplotlib stuff - touchy!)
 
-stdFont = 'Arial'
+stdFont = "Arial"
 
 
 def cleanRepl(matchobj):
@@ -44,14 +47,15 @@ def cleanRepl(matchobj):
         Replace backslashes with forward slashes
         replace underscores (subscript) with escaped underscores
     """
-    if matchobj.group(0) == '\\':
-        return '/'
-    if matchobj.group(0) == '_':
-        return '\_'
-    if matchobj.group(0) == '/':
-        return '/'
+    if matchobj.group(0) == "\\":
+        return "/"
+    if matchobj.group(0) == "_":
+        return "\_"
+    if matchobj.group(0) == "/":
+        return "/"
     else:
-        return ''
+        return ""
+
 
 def matplotlibExport(gridlayout=None, title=None):
     """
@@ -73,28 +77,34 @@ def matplotlibExport(gridlayout=None, title=None):
         raise Exception("Method matplotlibExport requires a QGridLayout")
 
     fig = pylab.figure()
-    pylab.rcParams['text.usetex'] = False
+    fig.set_size_inches(10., 8.)
+    pylab.rcParams["text.usetex"] = False
     # escape filename information so it can be rendered by removing
     # common characters that trip up latex...:
-    escs = re.compile('[\\\/_]')
-    print(title)
-    if title is not None:
-        tiname = '%r' % title
-        tiname = re.sub(escs, cleanRepl, tiname)[1:-1]
-        fig.suptitle(r''+tiname)
-    pylab.autoscale(enable=True, axis='both', tight=None)
+    # escs = re.compile("[\\\/_]")
+    # if title is not None:
+    #     tiname = "%r" % title.replace("'", "")
+    #     # tiname = re.sub(escs, cleanRepl, tiname)[1:-1]
+    fig.suptitle(title, fontsize=11)
+    pylab.autoscale(enable=True, axis="both", tight=None)
     # build the plot based on the grid layout
-    gs = gridspec.GridSpec(gridlayout.rowCount(), gridlayout.columnCount())  # build matplotlib gridspec
+    gs = gridspec.GridSpec(
+        gridlayout.rowCount(), gridlayout.columnCount()
+    )  # build matplotlib gridspec
     for i in range(gridlayout.count()):
         w = gridlayout.itemAt(i).widget()  # retrieve the plot widget...
         (x, y, c, r) = gridlayout.getItemPosition(i)  # and gridspecs paramters
-        mplax = pylab.subplot(gs[x:(c+x), y:(r+y)])  # map to mpl subplot geometry
+        mplax = pylab.subplot(
+            gs[x : (c + x), y : (r + y)]
+        )  # map to mpl subplot geometry
         export_panel(w, mplax)  # now fill the plot
     gs.update(wspace=0.25, hspace=0.5)  # adjust spacing
-#    pylab.draw()
-# hook to save figure - not used here
-#       pylab.savefig(os.path.join(self.commonPrefix, self.protocolfile))
+    #    pylab.draw()
+    # hook to save figure - not used here
+    #       pylab.savefig(os.path.join(self.commonPrefix, self.protocolfile))
+    fig.canvas.draw()
     pylab.show()
+
 
 def export_panel(pgitem, ax):
     """
@@ -105,8 +115,8 @@ def export_panel(pgitem, ax):
     """
     # get labels from the pyqtgraph graphic item
     plitem = pgitem.getPlotItem()
-    xlabel = plitem.axes['bottom']['item'].label.toPlainText()
-    ylabel = plitem.axes['left']['item'].label.toPlainText()
+    xlabel = plitem.axes["bottom"]["item"].label.toPlainText()
+    ylabel = plitem.axes["left"]["item"].label.toPlainText()
     title = plitem.titleLabel.text
     fn = pg.functions
     ax.clear()
@@ -114,30 +124,40 @@ def export_panel(pgitem, ax):
 
     for item in plitem.curves:
         x, y = item.getData()
+        if x is None or y is None:
+            continue
         opts = item.opts
-        pen = fn.mkPen(opts['pen'])
+        pen = fn.mkPen(opts["pen"])
         if pen.style() == Qt.Qt.NoPen:
-            linestyle = ''
+            linestyle = ""
         else:
-            linestyle = '-'
-        color = tuple([c/255. for c in fn.colorTuple(pen.color())])
-        symbol = opts['symbol']
-        if symbol == 't':
-            symbol = '^'
-        symbolPen = fn.mkPen(opts['symbolPen'])
-        symbolBrush = fn.mkBrush(opts['symbolBrush'])
-        markeredgecolor = tuple([c/255. for c in fn.colorTuple(symbolPen.color())])
-        markerfacecolor = tuple([c/255. for c in fn.colorTuple(symbolBrush.color())])
-        markersize = opts['symbolSize']
+            linestyle = "-"
+        color = tuple([c / 255.0 for c in fn.colorTuple(pen.color())])
+        symbol = opts["symbol"]
+        if symbol == "t":
+            symbol = "^"
+        symbolPen = fn.mkPen(opts["symbolPen"])
+        symbolBrush = fn.mkBrush(opts["symbolBrush"])
+        markeredgecolor = tuple([c / 255.0 for c in fn.colorTuple(symbolPen.color())])
+        markerfacecolor = tuple([c / 255.0 for c in fn.colorTuple(symbolBrush.color())])
+        markersize = opts["symbolSize"]
 
-        if opts['fillLevel'] is not None and opts['fillBrush'] is not None:
-            fillBrush = fn.mkBrush(opts['fillBrush'])
-            fillcolor = tuple([c/255. for c in fn.colorTuple(fillBrush.color())])
-            ax.fill_between(x=x, y1=y, y2=opts['fillLevel'], facecolor=fillcolor)
-
-        pl = ax.plot(x, y, marker=symbol, color=color, linewidth=pen.width(),
-                     linestyle=linestyle, markeredgecolor=markeredgecolor, markerfacecolor=markerfacecolor,
-                     markersize=markersize)
+        if opts["fillLevel"] is not None and opts["fillBrush"] is not None:
+            fillBrush = fn.mkBrush(opts["fillBrush"])
+            fillcolor = tuple([c / 255.0 for c in fn.colorTuple(fillBrush.color())])
+            ax.fill_between(x=x, y1=y, y2=opts["fillLevel"], facecolor=fillcolor)
+        
+        pl = ax.plot(
+            x,
+            y,
+            marker=symbol,
+            color=color,
+            linewidth=pen.width()/2.0,
+            linestyle=linestyle,
+            markeredgecolor=markeredgecolor,
+            markerfacecolor=markerfacecolor,
+            markersize=markersize/2.0,
+        )
         xr, yr = plitem.viewRange()
         ax.set_xbound(*xr)
         ax.set_ybound(*yr)
@@ -152,32 +172,37 @@ def cleanAxes(axl):
     if type(axl) is not list:
         axl = [axl]
     for ax in axl:
-        for loc, spine in ax.spines.items():
-            if loc in ['left', 'bottom']:
+        for loc, spine in list(ax.spines.items()):
+            if loc in ["left", "bottom"]:
                 pass
-            elif loc in ['right', 'top']:
-                spine.set_color('none')  # do not draw the spine
+            elif loc in ["right", "top"]:
+                spine.set_color("none")  # do not draw the spine
             else:
-                raise ValueError('Unknown spine location: %s' % loc)
-             # turn off ticks when there is no spine
-            ax.xaxis.set_ticks_position('bottom')
+                raise ValueError("Unknown spine location: %s" % loc)
+            # turn off ticks when there is no spine
+            ax.xaxis.set_ticks_position("bottom")
             # stopped working in matplotlib 1.10
-            ax.yaxis.set_ticks_position('left')
+            ax.yaxis.set_ticks_position("left")
         update_font(ax)
+
 
 def update_font(axl, size=6, font=stdFont):
     if type(axl) is not list:
         axl = [axl]
-    fontProperties = {'family': 'sans-serif', 'sans-serif': [font],
-                      'weight': 'normal', 'font-size': size}
+    fontProperties = {
+        "family": "sans-serif",
+        "sans-serif": [font],
+        "weight": "normal",
+        "font-size": size,
+    }
     for ax in axl:
         for tick in ax.xaxis.get_major_ticks():
-            tick.label1.set_family('sans-serif')
+            tick.label1.set_family("sans-serif")
             tick.label1.set_fontname(stdFont)
             tick.label1.set_size(size)
 
         for tick in ax.yaxis.get_major_ticks():
-            tick.label1.set_family('sans-serif')
+            tick.label1.set_family("sans-serif")
             tick.label1.set_fontname(stdFont)
             tick.label1.set_size(size)
         # xlab = ax.axes.get_xticklabels()
@@ -188,13 +213,14 @@ def update_font(axl, size=6, font=stdFont):
         # ylab = ax.axes.get_yticklabels()
         # for y in ylab:
         #     y.set_fontproperties(fontProperties)
-        #ax.set_xticklabels(ax.get_xticks(), fontProperties)
-        #ax.set_yticklabels(ax.get_yticks(), fontProperties)
+        # ax.set_xticklabels(ax.get_xticks(), fontProperties)
+        # ax.set_yticklabels(ax.get_yticks(), fontProperties)
         ax.xaxis.set_smart_bounds(True)
         ax.yaxis.set_smart_bounds(True)
-        ax.tick_params(axis='both', labelsize=9)
+        ax.tick_params(axis="both", labelsize=9)
 
-def formatTicks(axl, axis='xy', fmt='%d', font='Arial'):
+
+def formatTicks(axl, axis="xy", fmt="%d", font="Arial"):
     """
     Convert tick labels to intergers
     to do just one axis, set axis = 'x' or 'y'
@@ -204,9 +230,7 @@ def formatTicks(axl, axis='xy', fmt='%d', font='Arial'):
         axl = [axl]
     majorFormatter = FormatStrFormatter(fmt)
     for ax in axl:
-        if 'x' in axis:
+        if "x" in axis:
             ax.xaxis.set_major_formatter(majorFormatter)
-        if 'y' in axis:
+        if "y" in axis:
             ax.yaxis.set_major_formatter(majorFormatter)
-
-

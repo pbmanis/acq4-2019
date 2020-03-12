@@ -64,14 +64,14 @@ class IVCurve(AnalysisModule):
         self.Clamps = self.dataModel.GetClamps()  # access the "GetClamps" class for reading data
         self.data_template = (
           OrderedDict([('Species', (12, '{:>12s}')), ('Age', (5, '{:>5s}')), ('Sex', (3, '{:>3s}')), ('Weight', (6, '{:>6s}')),
-                       ('Temperature', (10, '{:>10s}')), ('ElapsedTime', (11, '{:>11.2f}')), 
-                       ('RMP', (5, '{:>5.1f}')), ('Rin', (5, '{:>5.1f}')), ('Bridge', (5, '{:>5.1f}')),
-                       ('tau', (5, '{:>5.1f}')), ('AdaptRatio', (9, '{:>9.3f}')),
-                       ('tauh', (5, '{:>5.1f}')), ('Gh', (6, '{:>6.2f}')),
-                       ('FiringRate', (12, '{:>9.1f}')), 
-                       ('AP1_HalfWidth', (13, '{:>13.2f}')), ('AP1_Latency', (11, '{:>11.1f}')), 
-                       ('AP2_HalfWidth', (13, '{:>13.2f}')), ('AP2_Latency', (11, '{:>11.1f}')), 
-                       ('AHP_Depth', (9, '{:9.2f}')),
+                       ('Temperature', (10, '{:>10s}')), ('ElapsedTime', (11, '{:>11.2f}', 1.0)), 
+                       ('RMP', (5, '{:>5.1f}', 1.0)), ('Rin', (5, '{:>5.1f}', 1.0)), ('Bridge', (5, '{:>5.1f}', 1.0e-6)),
+                       ('tau', (5, '{:>5.1f}', 1.0)), ('AdaptRatio', (9, '{:>9.3f}', 1.0)),
+                       ('tauh', (5, '{:>5.1f}', 1.0)), ('Gh', (8, '{:>7.3f}', 1e9)),
+                       ('FiringRate', (12, '{:>9.1f}', 1.0)), 
+                       ('AP1_HalfWidth', (13, '{:>13.2f}', 1.0)), ('AP1_Latency', (11, '{:>11.1f}', 1.0)), 
+                       ('AP2_HalfWidth', (13, '{:>13.2f}', 1.0)), ('AP2_Latency', (11, '{:>11.1f}', 1.0)), 
+                       ('AHP_Depth', (9, '{:9.2f}', 1.0)),
                        ('Description', (11, '{:s}')),
                       ]))
         self.Script = ScriptProcessor.ScriptProcessor(host)
@@ -85,7 +85,7 @@ class IVCurve(AnalysisModule):
         self.lrss_flag = True  # show is default
         self.lrpk_flag = True
         self.rmp_flag = True
-        self.bridgeCorrection = None # bridge  correction in Mohm.
+        self.bridgeCorrection = 0. # bridge  correction in Mohm.
         self.showFISI = True # show FISI or ISI as a function of spike number (when False)
         self.lrtau_flag = False
         self.regions_exist = False
@@ -143,9 +143,9 @@ class IVCurve(AnalysisModule):
             self.ctrl.IVCurve_MPLExport.setEnabled = False  # make button inactive
         #        self.ctrl.IVCurve_MPLExport.clicked.connect(self.matplotlibExport)
         else:
-            self.ctrl.IVCurve_MPLExport.clicked.connect(
-                functools.partial(matplotlibexporter.matplotlibExport, gridlayout=self.gridLayout,
-                                  title=self.filename))
+            self.ctrl.IVCurve_MPLExport.clicked.connect(self.to_mpl)
+                # functools.partial(matplotlibexporter.matplotlibExport, gridlayout=self.gridLayout,
+                #                   title=self.filename))
         self.ctrl.IVCurve_KeepAnalysis.clicked.connect(self.resetKeepAnalysis)
         self.ctrl.IVCurve_getFileInfo.clicked.connect(self.get_file_information)
         [self.ctrl.IVCurve_RMPMode.currentIndexChanged.connect(x)
@@ -194,7 +194,7 @@ class IVCurve(AnalysisModule):
             # Add a color scale
         self.color_scale = pg.GradientLegend((20, 150), (-10, -10))
         self.data_plot.scene().addItem(self.color_scale)
-        self.ctrl.pushButton.clicked.connect(functools.partial(self.initialize_regions,
+        self.ctrl.IVCurve_Reset.clicked.connect(functools.partial(self.initialize_regions,
                                                                reset=True))
 
     def clear_results(self):
@@ -203,7 +203,7 @@ class IVCurve(AnalysisModule):
         This is typically needed every time a new data set is loaded.
         """
         
-        self.filename = ''
+        # self.filename = ''
         self.r_in = 0.0
         self.tau = 0.0
         self.adapt_ratio = 0.0
@@ -505,13 +505,8 @@ class IVCurve(AnalysisModule):
             print('******** Doing bridge correction: ', self.bridgeCorrection)
             self.Clamps.traces = self.Clamps.traces - (self.bridgeCorrection * self.Clamps.cmd_wave)
         else:
-            br = self.ctrl.IVCurve_bridge.value()*1e6
-            # print 'br: ', br
-            if br != 0.0:
-                self.bridgeCorrection = br
-                self.Clamps.traces = self.Clamps.traces - (self.bridgeCorrection * self.Clamps.cmd_wave)
-            else:
-                self.bridgeCorrection = None
+            self.bridgeCorrection = self.ctrl.IVCurve_bridge.value()*1e6  # use the value in the window
+            self.Clamps.traces = self.Clamps.traces - (self.bridgeCorrection * self.Clamps.cmd_wave)
         # now plot the data 
         self.ctrl.IVCurve_tauh_Commands.clear()
         self.ctrl.IVCurve_tauh_Commands.addItems(ci['cmdList'])
@@ -671,7 +666,7 @@ class IVCurve(AnalysisModule):
 
         self.analysis_summary['tauh'] = np.nan  # define these because they may not get filled...
         self.analysis_summary['Gh'] = np.nan
-        
+        self.analysis_summary['Bridge'] = self.bridgeCorrection
         (pen, filledbrush, emptybrush, symbol, n, clearFlag) = self.map_symbol()
         # update RMP first as we might need it for the others.
         if self.ctrl.IVCurve_showHide_lrrmp.isChecked():
@@ -710,8 +705,9 @@ class IVCurve(AnalysisModule):
             self.peakmode = self.ctrl.IVCurve_PeakMode.currentText()
             self.update_pkAnalysis()
         
+        print('spike shape analysis')
         self.analyzeSpikeShape()  # finally do the spike shape
-        self.ctrl.IVCurve_bridge.setValue(0.)  # reset bridge value after analysis.
+        #self.ctrl.IVCurve_bridge.setValue(0.)  # reset bridge value after analysis.
 
     def read_script(self, name=''):
         """
@@ -818,8 +814,8 @@ class IVCurve(AnalysisModule):
                 misi = np.mean(np.diff(spikes[-3:]))*1e3
                 ar[i] = misi / self.fisi[i]
 
-        iAR = np.where(ar > 0)
-        self.adapt_ratio = np.mean(ar[iAR])  # only where we made the measurement
+        iAR = np.where(ar > 0.)
+        self.adapt_ratio = np.nanmean(ar[iAR])  # only where we made the measurement
         self.analysis_summary['AdaptRatio'] = self.adapt_ratio
         self.ctrl.IVCurve_AR.setText(u'%7.3f' % self.adapt_ratio)
         self.nospk = np.where(self.spikecount == 0)
@@ -1646,7 +1642,12 @@ class IVCurve(AnalysisModule):
         self.fslPlot.setLabel('bottom', xfsllabel)
         self.fslPlot.setLabel('left', ylabel)
 
-    def printAnalysis(self, printnow=True, script_header=True, copytoclipboard=False):
+    def to_mpl(self):
+        title = f"{self.analysis_summary['CellID']:s}::{self.analysis_summary['Protocol']:s}"
+        matplotlibexporter.matplotlibExport(gridlayout=self.gridLayout,
+                          title=title)
+        
+    def printAnalysis(self, printnow=True, script_header=True, copytoclipboard=True):
         """
         Print the analysis summary information (Cell, protocol, etc)
         in a nice formatted version to the terminal.
@@ -1670,22 +1671,13 @@ class IVCurve(AnalysisModule):
         if self.Clamps.data_mode in self.dataModel.ic_modes or self.Clamps.data_mode == 'vc':
             data_template = self.data_template
         else:
-          data_template = (
-            OrderedDict([('ElapsedTime', '{:>8.2f}'), ('HoldV', '{:>5.1f}'), ('JP', '{:>5.1f}'),
-                         ('Rs', '{:>6.2f}'), ('Cm', '{:>6.1f}'), ('Ru', '{:>6.2f}'),
-                         ('Erev', '{:>6.2f}'),
-                         ('gsyn_Erev', '{:>9.2f}'), ('gsyn_60', '{:>7.2f}'), ('gsyn_13', '{:>7.2f}'),
-                         # ('p0', '{:6.3e}'), ('p1', '{:6.3e}'), ('p2', '{:6.3e}'), ('p3', '{:6.3e}'),
-                         ('I_ionic+', '{:>8.3f}'), ('I_ionic-', '{:>8.3f}'), ('ILeak', '{:>7.3f}'),
-                         ('win1Start', '{:>9.3f}'), ('win1End', '{:>7.3f}'),
-                         ('win2Start', '{:>9.3f}'), ('win2End', '{:>7.3f}'),
-                         ('win0Start', '{:>9.3f}'), ('win0End', '{:>7.3f}'),
-            ]))
+          raise ValueError('No data tempate for data mode: self.Clamps.data_mode=', self.Clamps.data_mode)
+
         # summary table header is written anew for each cell
         htxt = ''
         if script_header:
             htxt = f"{'Cell':34s}\t{'Genotype':15s}\t{'Protocol':24s}\t"
-            for k in data_template.keys():
+            for k in list(data_template.keys()):
                 cnv = '{:<%ds}' % (data_template[k][0])
                 # print 'cnv: ', cnv
                 htxt += (cnv + '\t').format(k)
@@ -1695,14 +1687,21 @@ class IVCurve(AnalysisModule):
         ltxt = ''
         if 'Genotype' not in self.analysis_summary.keys():
             self.analysis_summary['Genotype'] = 'Unknown'
-        ltxt += f"{self.analysis_summary['CellID']:34s}\t{self.analysis_summary['Genotype']:15s}\t{self.analysis_summary['Protocol']:24s}\t"
-        for a in data_template.keys():
+        ltxt += f"{self.analysis_summary['CellID']:34s}\t{self.analysis_summary['Genotype']:15s}"
+        ltxt += f"\t{self.analysis_summary['Protocol']:24s}\t"
+        print(self.analysis_summary.keys())
+        print('AP1_Halfwidth: ', self.analysis_summary['AP1_HalfWidth'])
+        for a in list(data_template.keys()):
             if a in self.analysis_summary.keys():
                 txt = self.analysis_summary[a]
                 if a in ['Description', 'Notes']:
                     txt = txt.replace('\n', ' ').replace('\r', '')  # remove line breaks from output, replace \n with space
                 #print a, data_template[a]
-                ltxt += (data_template[a][1]).format(txt) + ' \t'
+                if isinstance(txt, (float, int)):
+                    ltxt += (data_template[a][1]).format(txt*data_template[a][2]) + ' \t'
+                    
+                else:
+                    ltxt += (data_template[a][1]).format(txt) + ' \t'
             else:
                 ltxt += ('{:>%ds}' % (data_template[a][0]) + '\t').format('NaN')
         ltxt = ltxt.replace('\n', ' ').replace('\r', '')  # remove line breaks
