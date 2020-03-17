@@ -164,7 +164,6 @@ class FileAnalysisView(Qt.QWidget):
         self.ui.dataModelCombo.addItem('Load...')
         mods = models.listModels()
         for m in mods:
-            print('m: ', m)
             if m == '__pycache__':
                 continue
             self.ui.dataModelCombo.addItem(m)
