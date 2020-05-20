@@ -1,14 +1,14 @@
-acq4===0.9.3-py3pbm-beed7a101c-
+# acq4===0.9.3-py3pbm-beed7a101c-
 asteval==0.9.18
 certifi==2019.11.28
 chardet==3.0.4
 cycler==0.10.0
 h5py==2.10.0
-idna==2.9
+idna==2.9 
 kiwisolver==1.1.0
 lmfit==1.0.0
 matplotlib==3.2.0
-NEURON==7.7
+#NEURON>=7.7
 numpy==1.18.1
 Pillow==7.0.0
 pyparsing==2.0.3
