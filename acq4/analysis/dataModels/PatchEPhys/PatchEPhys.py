@@ -2,6 +2,7 @@
 from __future__ import print_function
 import acq4.util.DataManager as DataManager
 import acq4.util.SequenceRunner as SequenceRunner
+from pathlib import Path
 from collections import OrderedDict
 import functools
 from acq4.util.metaarray import *
@@ -222,13 +223,12 @@ def getClampFile(protoDH):
     if protoDH.name()[-8:] == 'DS_Store': ## OS X filesystem puts .DS_Store files in all directories
         return None
     files = protoDH.ls()
-    for n in deviceNames['Clamp']:
-        if n in files:
+    for n in files:
+        if n.startswith('.'):  # skip all hidden files.
+            continue
+        ns = str(Path(n).stem)
+        if ns in deviceNames['Clamp']:
             return protoDH[n]
-        if n+'.ma' in files:
-            return protoDH[n+'.ma']
-    #print 'getClampFile: did not find protocol for clamp: ', files
-    #print 'valid devices: ', deviceNames['Clamp']
     return None
 
 def isClampFile(fh):
@@ -651,36 +651,32 @@ class GetClamps():
                 sequence_values = [x for x in self.clampValues]
         else:
             sequence_values = []
-#            nclamp = 0
-
         # if sequence has repeats, build pattern
         if reps in self.sequence:
             self.repc = self.sequence[reps]
             self.nrepc = len(self.repc)
-            # noinspection PyUnusedLocal
             sequence_values = [x for y in range(self.nrepc) for x in sequence_values]
 
         # select subset of data by overriding the directory sequence...
-            dirs = []
+            # dirs = []
 ###
 ### This is possibly broken -
 ###
 ###
-            ld = pars['sequence1']['index']
-            rd = pars['sequence2']['index']
-            if ld[0] == -1 and rd[0] == -1:
-                pass
-            else:
-                if ld[0] == -1:  # 'All'
-                    ld = range(pars['sequence2']['count'])
-                if rd[0] == -1:  # 'All'
-                    rd = range(pars['sequence2']['count'])
-
-                for i in ld:
-                    for j in rd:
-                        dirs.append('%03d_%03d' % (i, j))
+            # ld = pars['sequence1']['index']
+            # rd = pars['sequence2']['index']
+            # if ld[0] == -1 and rd[0] == -1:
+            #     pass
+            # else:
+            #     if ld[0] == -1:  # 'All'
+            #         ld = range(pars['sequence2']['count'])
+            #     if rd[0] == -1:  # 'All'
+            #         rd = range(pars['sequence2']['count'])
+            #
+            #     for i in ld:
+            #         for j in rd:
+            #             dirs.append('%03d_%03d' % (i, j))
 ### --- end of possibly broken section
-
         for i, directory_name in enumerate(dirs):  # dirs has the names of the runs withing the protocol
             data_dir_handle = dh[directory_name]  # get the directory within the protocol
             try:
@@ -864,9 +860,9 @@ class GetClamps():
         # pars[''sequence'] is a dictionary
         # The dictionary has  'index' (currentIndex()) and 'count' from the GUI
         if 'sequence1' not in k:
-            pars['sequence1'] = {'index': 0}  # index of '0' is "All"
+            pars['sequence1'] = {'index': [-1]}  # index of '-1' is "All"
             pars['sequence1']['count'] = 0
         if 'sequence2' not in k:
-            pars['sequence2'] = {'index': 0}
+            pars['sequence2'] = {'index': [-1]}
             pars['sequence2']['count'] = 0
         return pars
