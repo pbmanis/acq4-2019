@@ -262,7 +262,10 @@ class STDPAnalyzer(AnalysisModule):
                 )
                 maxi = -1
                 for i, protoDir in enumerate(f.ls()):
+                    if protoDir[0] == '.':
+                        continue
                     df = self.dataModel.getClampFile(f[protoDir])
+
                     if df is None:
                         print("Error in reading data file %s" % f.name())
                         break
@@ -1041,7 +1044,8 @@ class STDPAnalyzer(AnalysisModule):
         data["originalTimes"] =  self.averagedTraces["origTimes"]
         self.pkl_data = data
         
-        basefn = Path('/Volumes/Promise Pegasus/ManisLab_Data3/Kasten_Michael/STDP_A1/')
+        # basefn = Path('/Volumes/Promise Pegasus/ManisLab_Data3/Kasten_Michael/STDP_A1/')
+        basefn = Path('/Volumes/PBM_006/data/Rao-STDP/Additional-Kasten')
         cellfile = Path('~'.join(Path(data['CellDir']).parts[-3:])+'.pkl') 
         fout = Path(basefn, cellfile)
         print(data.keys())
