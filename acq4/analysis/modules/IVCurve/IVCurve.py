@@ -1696,14 +1696,16 @@ class IVCurve(AnalysisModule):
         # xdata must be current levels
         xfit = self.Clamps.commandLevels * iscale
         if np.max(self.SA.spikecount) > 0:
-            (fpar, xf, yf, names, error, f, func) = self.SA.fitOne(
+            spike_fit_result = self.SA.fitOne(
                 xfit,
                 self.SA.spikecount,
                 info="FI",
                 fixNonMonotonic=True,
                 excludeNonMonotonic=False,
             )
-            self.fiPlot.plot(x=xf[0], y=yf[0], clear=False, pen=fitpen)
+            if spike_fit_result is not None:
+                (fpar, xf, yf, names, error, f, func) = spike_fit_result
+                self.fiPlot.plot(x=xf[0], y=yf[0], clear=False, pen=fitpen)
 
         fslmax = 0.0
         if self.showFISI:
