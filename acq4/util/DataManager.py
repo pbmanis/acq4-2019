@@ -15,6 +15,7 @@ if __name__ == '__main__':
     path = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(os.path.join(path, '..', '..'))
 
+from pathlib import Path
 import threading, os, re, sys, shutil
 import functools
 from acq4.util.functions import strncmp
@@ -613,6 +614,12 @@ class DirHandle(FileHandle):
         return 2*self.cmp(os.path.isdir(os.path.join(self.name(),b)), os.path.isdir(os.path.join(self.name(),a))) + self.cmp(a,b)
         
     def _updateLsCache(self, sortMode):
+        """
+        Get a list of files in this directory
+        The list is filtered so that .index and .log files are not shown
+        The list is also filtered so that ._ (dotunderscore) files are not shown
+        The list is then sorted either by data or name
+        """
         try:
             files = os.listdir(self.name())
         except:
@@ -621,6 +628,11 @@ class DirHandle(FileHandle):
         for i in ['.index', '.log']:
             if i in files:
                 files.remove(i)
+        dotunderscores = list(Path(self.name()).glob('._*'))
+        for i in list(dotunderscores):
+            fi = str(i.name)
+            if fi in files:
+                files.remove(fi)
         
         if sortMode == 'date':
             ## Sort files by creation time
