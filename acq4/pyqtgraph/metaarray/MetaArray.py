@@ -837,8 +837,6 @@ class MetaArray(object):
                 print('meta: ', meta)
                 print('line: ', line)
                 raise ValueError('MetaArray: _readMeta: Unable to parse metaarray')
-        print('meta dir: ', dir(meta))
-        print('meta in readmeta: ', meta)
         ret = eval(str(meta))
         #print ret
         return ret
