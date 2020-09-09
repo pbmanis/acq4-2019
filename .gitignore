@@ -9,6 +9,11 @@
 *.pyc
 *~
 *.renamed*
+*.bak
+*_pyqt5.py
+*_pyqt4.py
+*_pyside.py
+
 acq4/**/*template.py
 acq4/**/*template_pyqt5.py
 acq4/**/*template_pyside.py
