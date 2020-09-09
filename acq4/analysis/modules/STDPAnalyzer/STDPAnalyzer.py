@@ -386,10 +386,10 @@ class STDPAnalyzer(AnalysisModule):
             data = self.traces[
                 (self.traces["timestamp"] > rgn[0] + self.expStart)
                 * (self.traces["timestamp"] < rgn[1] + self.expStart)
-            ]["data"]
+            ]
             timeKey = "timestamp"
             dataKey = "data"
-            for i, d in enumerate(data):
+            for i, d in enumerate(data[dataKey]):
                 self.plots.tracesPlot.plot(d["primary"], pen=pg.intColor(i, len(data)))
 
         ### plot only the average traces with timestamps within the selected region
@@ -402,7 +402,7 @@ class STDPAnalyzer(AnalysisModule):
             timeKey = "avgTimeStamp"
             dataKey = "avgData"
 
-            for i, d in enumerate(data["avgData"]):
+            for i, d in enumerate(data[dataKey]):
                 self.plots.tracesPlot.plot(d["primary"], pen=pg.intColor(i, len(data)))
 
                 ### also display the original traces if selected in the UI
@@ -414,8 +414,9 @@ class STDPAnalyzer(AnalysisModule):
                         )
 
         ### If analysis has been done, mark the location on each trace where the highest slope was found
-        if self.analysisResults is not None and len(data[dataKey]) > 0:
-            datatime = data[dataKey][0].axisValues("Time")
+        
+        if self.analysisResults is not None and len(data) > 0 and not isinstance(data[0], np.void):
+            datatime = data['time'][0]
             timestep = datatime[1] - datatime[0]
             for i, time in enumerate(data[timeKey]):
                 slopeTime = self.analysisResults[self.analysisResults["time"] == time][
@@ -424,7 +425,7 @@ class STDPAnalyzer(AnalysisModule):
                 slopeInd = int(slopeTime / timestep)
                 self.plots.tracesPlot.plot(
                     [slopeTime],
-                    [data[i][dataKey]["primary"][slopeInd]],
+                    [data[i]["primary"][slopeInd]],
                     pen=None,
                     symbol="o",
                     symbolPen=None,
@@ -880,10 +881,10 @@ class STDPAnalyzer(AnalysisModule):
                 )
                 # postStart = self.analysisResults['time'][0]+ 7*60 ## baseline and pairing take up 7 minutes from the start of the experiment
                 pr1 = np.argwhere(
-                    self.analysisResults["time"] >= 60 * postwin[0] + self.expStart
+                    self.analysisResults["time"] >= 60. * postwin[0] + self.expStart
                 )
                 pr2 = np.argwhere(
-                    self.analysisResults["time"] <= 60 * postwin[1] + self.expStart
+                    self.analysisResults["time"] <= 60. * postwin[1] + self.expStart
                 )
                 # print(pr1, postwin, self.expStart)
                 try:
