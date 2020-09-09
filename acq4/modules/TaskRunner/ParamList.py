@@ -148,7 +148,7 @@ class ParamList(Qt.QTreeWidget):
             (dev, param, enabled) = self.itemData(i)
             if enabled:
                 #num = i.text(2).toInt()[0]
-                num = i.paramData[2]
+                num = int(i.paramData[2])
                 if num < 1:
                     continue
                 childs = []

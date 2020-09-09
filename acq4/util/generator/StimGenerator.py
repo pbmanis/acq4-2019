@@ -404,8 +404,9 @@ class StimGenerator(Qt.QWidget):
         seq = self.paramSpace() # -- this is where the Laser bug was happening -- seq becomes 'Pulse_sum', but params was {'power.Pulse_sum': x}, so the default value is always used instead (fixed by removing 'power.' before the params are sent to stimGenerator, but perhaps there is a better place to fix this)
         for k in seq:
             if k in params:  ## select correct value from sequence list
+                # print('seq params: ', seq[k][1][params[k]])
                 try:
-                    ns[k] = float(seq[k][1][params[k]])
+                    ns[k] = [float(x) for x in seq[k][1][params[k]]]
                 except IndexError:
                     print("Requested value %d for param %s, but only %d in the param list." % (params[k], str(k), len(seq[k][1])))
                     raise
