@@ -133,7 +133,8 @@ class IVCurve(AnalysisModule):
         self.symbol_list = itertools.cycle(self.symbols)
         self.script_header = False
         self.Clamps.data_mode = "IC"  # analysis depends on the type of data we have.
-        self.clear_results()
+        self.plot_list = []
+
 
         # --------------graphical elements-----------------
         self._sizeHint = (1280, 900)  # try to establish size of window
@@ -245,6 +246,9 @@ class IVCurve(AnalysisModule):
         self.ctrl.IVCurve_RMPMode.setCurrentIndex(
             1
         )  # put in IV mode with current axis.
+        self.AllPlots = [self.data_plot, self.cmd_plot, 
+                        self.fiPlot, self.fslPlot, self.IV_plot, self.RMP_plot]
+        self.clear_results()
 
     def clear_results(self):
         """
@@ -262,6 +266,9 @@ class IVCurve(AnalysisModule):
         Many class variables are reinitialized by calling the routine.
         """
 
+        for p in self.AllPlots:
+            p.clearPlots()
+
         self.filename = ""
         self.r_in = 0.0
         self.tau = 0.0
@@ -272,12 +279,12 @@ class IVCurve(AnalysisModule):
         self.Sequence = ""
         self.ivss = []  # steady-state IV (window 2)
         self.ivpk = []  # peak IV (window 1)
-
         self.fsl = []  # first spike latency
         self.fisi = []  # first isi
         self.rmp = []  # resting membrane potential during sequence
         self.analysis_summary = {}
         self.script_header = True
+
 
     def resetKeepAnalysis(self):
         """
@@ -721,20 +728,22 @@ class IVCurve(AnalysisModule):
             for i in range(ntr):
                 atrace = self.Clamps.traces[i]
                 acmdwave = self.Clamps.cmd_wave[i]
-                self.data_plot.plot(
+                p = self.data_plot.plot(
                     x=self.Clamps.time_base,
                     y=atrace,
                     downSample=10,
                     downSampleMethod="mean",
                     pen=pg.intColor(colindxs[i], len(cmdindxs), maxValue=255),
                 )
-                self.cmd_plot.plot(
+                self.plot_list.append(p)
+                p = self.cmd_plot.plot(
                     x=self.Clamps.time_base,
                     y=acmdwave,
                     downSample=10,
                     downSampleMethod="mean",
                     pen=pg.intColor(colindxs[i], len(cmdindxs), maxValue=255),
                 )
+                self.plot_list.append(p)
 
         if self.Clamps.data_mode in self.dataModel.ic_modes:
             self.label_up(self.data_plot, "T (s)", "V (V)", "Data")
@@ -887,7 +896,6 @@ class IVCurve(AnalysisModule):
         #        print 'readparsupdate, calling analyze spikes'
         # self.SA.setup(self.Clamps, 0)
         self.analyzeSpikes()
-        self.ctrl.IVCurve_AR.setText("%7.3f" % self.SA.adapt_ratio)
 
         self.analysis_summary[
             "tauh"
@@ -1015,8 +1023,10 @@ class IVCurve(AnalysisModule):
                     self.tx,
                 )
             )
+            self.ctrl.IVCurve_AR.setText("%7.3f" % 0.0)
+            
             self.SA.spikecount = []
-            self.fiPlot.plot(
+            p = self.fiPlot.plot(
                 x=[],
                 y=[],
                 clear=clearFlag,
@@ -1026,7 +1036,8 @@ class IVCurve(AnalysisModule):
                 symbolBrush=(0, 0, 255, 200),
                 symbol="s",
             )
-            self.fslPlot.plot(
+            self.plot_list.append(p)
+            p = self.fslPlot.plot(
                 x=[],
                 y=[],
                 pen="w",
@@ -1036,7 +1047,8 @@ class IVCurve(AnalysisModule):
                 symbolBrush=(0, 255, 0, 200),
                 symbol="t",
             )
-            self.fslPlot.plot(
+            self.plot_list.append(p)
+            p = self.fslPlot.plot(
                 x=[],
                 y=[],
                 pen="w",
@@ -1045,6 +1057,7 @@ class IVCurve(AnalysisModule):
                 symbolBrush=(255, 255, 0, 200),
                 symbol="s",
             )
+            self.plot_list.append(p)
             return
         threshold = self.ctrl.IVCurve_SpikeThreshold.value() * 1e-3
         self.analysis_summary[
@@ -1194,6 +1207,7 @@ class IVCurve(AnalysisModule):
         """
         if len(self.dataMarkers) > 0:
             [self.dataMarkers[k].clear() for k, m in enumerate(self.dataMarkers)]
+            # [self.dataMarkers[k].removeItem() for k, m in enumerate(self.dataMarkers)]
         self.dataMarkers = []
 
     def update_Tau_membrane(
@@ -1264,7 +1278,8 @@ class IVCurve(AnalysisModule):
                 yFit[k],
                 pen=pg.mkPen("r", width=2, style=QtCore.Qt.DashLine),
             )
-
+            self.plot_list.append(self.RmTau.taum_fitted[k])
+            
     def update_Tauh(self, region=None, printWindow=False):
         """
         Compute tau (single exponential) from the onset of the markers
@@ -1301,7 +1316,7 @@ class IVCurve(AnalysisModule):
         self.RmTau.tauh_fitted[0] = self.data_plot.plot(
             self.RmTau.tauh_xf[0]+rgn[0], self.RmTau.tauh_yf[0], pen=bluepen
         )
-
+        self.plot_list.append(self.RmTau.taum_fitted[0])
         self.ctrl.IVCurve_Tauh.setText("%8.1f ms" % (self.RmTau.tauh_meantau * 1.0e3))
         self.ctrl.IVCurve_Ih_ba.setText("%8.1f" % (self.RmTau.tauh_bovera * 100.0))
         self.ctrl.IVCurve_ssAmp.setText(
@@ -1553,7 +1568,7 @@ class IVCurve(AnalysisModule):
         (pen, filledbrush, emptybrush, symbol, n, clearFlag) = self.map_symbol()
         if self.Clamps.data_mode in self.dataModel.ic_modes:
             if len(self.ivss) > 0 and self.ctrl.IVCurve_showHide_lrss.isChecked():
-                self.IV_plot.plot(
+                p = self.IV_plot.plot(
                     self.ivss_cmd * 1e12,
                     self.ivss * 1e3,
                     symbol=symbol,
@@ -1562,8 +1577,9 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=filledbrush,
                 )
+                self.plot_list.append(p)
             if len(self.ivpk) > 0 and self.ctrl.IVCurve_showHide_lrpk.isChecked():
-                self.IV_plot.plot(
+                p = self.IV_plot.plot(
                     self.ivpk_cmd * 1e12,
                     self.ivpk * 1e3,
                     symbol=symbol,
@@ -1572,10 +1588,11 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=emptybrush,
                 )
+                self.plot_list.append(p)
             self.label_up(self.IV_plot, "I (pA)", "V (mV)", "I-V (CC)")
         if self.Clamps.data_mode in self.dataModel.vc_modes:
             if len(self.ivss) > 0 and self.ctrl.IVCurve_showHide_lrss.isChecked():
-                self.IV_plot.plot(
+                p = self.IV_plot.plot(
                     self.ivss_cmd * 1e3,
                     self.ivss * 1e9,
                     symbol=symbol,
@@ -1584,8 +1601,9 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=filledbrush,
                 )
+                self.plot_list.append(p)
             if len(self.ivpk) > 0 and self.ctrl.IVCurve_showHide_lrpk.isChecked():
-                self.IV_plot.plot(
+                p = self.IV_plot.plot(
                     self.ivpk_cmd * 1e3,
                     self.ivpk * 1e9,
                     symbol=symbol,
@@ -1594,6 +1612,7 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=emptybrush,
                 )
+                self.plot_list.append(p)
             self.label_up(self.IV_plot, "V (mV)", "I (nA)", "I-V (VC)")
 
     def update_RMPPlot(self):
@@ -1613,7 +1632,7 @@ class IVCurve(AnalysisModule):
                 sf = 1e12
                 self.RMP_plot.setLabel("left", "I (pA)")
             if mode == 0:
-                self.RMP_plot.plot(
+                p = self.RMP_plot.plot(
                     self.Clamps.trace_StartTimes,
                     sf * np.array(self.RmTau.ivbaseline),
                     symbol=symbol,
@@ -1622,9 +1641,10 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=filledbrush,
                 )
+                self.plot_list.append(p)
                 self.RMP_plot.setLabel("bottom", "T (s)")
             elif mode == 1:
-                self.RMP_plot.plot(
+                p = self.RMP_plot.plot(
                     self.Clamps.commandLevels,
                     1.0e3 * np.array(self.RmTau.ivbaseline),
                     symbolSize=6,
@@ -1634,8 +1654,9 @@ class IVCurve(AnalysisModule):
                     symbolBrush=filledbrush,
                 )
                 self.RMP_plot.setLabel("bottom", "I (pA)")
+                self.plot_list.append(p)
             elif mode == 2:
-                self.RMP_plot.plot(
+                p = self.RMP_plot.plot(
                     self.SA.spikecount,
                     1.0e3 * np.array(self.RmTau.ivbaseline),
                     symbolSize=6,
@@ -1644,6 +1665,7 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=emptybrush,
                 )
+                self.plot_list.append(p)
                 self.RMP_plot.setLabel("bottom", "Spikes")
             else:
                 pass
@@ -1682,7 +1704,7 @@ class IVCurve(AnalysisModule):
             xlabel = "Spikes (N)"
         else:
             return  # mode not in available list
-        self.fiPlot.plot(
+        p = self.fiPlot.plot(
             x=xfi,
             y=self.SA.spikecount,
             clear=clearFlag,
@@ -1692,6 +1714,7 @@ class IVCurve(AnalysisModule):
             symbolPen=pen,
             symbolBrush=filledbrush,
         )
+        self.plot_list.append(p)
         # also fit the data and compute FI values
         # xdata must be current levels
         xfit = self.Clamps.commandLevels * iscale
@@ -1705,11 +1728,12 @@ class IVCurve(AnalysisModule):
             )
             if spike_fit_result is not None:
                 (fpar, xf, yf, names, error, f, func) = spike_fit_result
-                self.fiPlot.plot(x=xf[0], y=yf[0], clear=False, pen=fitpen)
+                p = self.fiPlot.plot(x=xf[0], y=yf[0], clear=False, pen=fitpen)
+                self.plot_list.append(p)
 
         fslmax = 0.0
         if self.showFISI:
-            self.fslPlot.plot(
+            p = self.fslPlot.plot(
                 x=xfsl,
                 y=self.SA.fsl[select] * yfslsc,
                 clear=clearFlag,
@@ -1719,7 +1743,8 @@ class IVCurve(AnalysisModule):
                 symbolPen=pen,
                 symbolBrush=filledbrush,
             )
-            self.fslPlot.plot(
+            self.plot_list.append(p)
+            p = self.fslPlot.plot(
                 x=xfsl,
                 y=self.SA.fisi[select] * yfslsc,
                 symbolSize=6,
@@ -1728,6 +1753,7 @@ class IVCurve(AnalysisModule):
                 symbolPen=pen,
                 symbolBrush=emptybrush,
             )
+            self.plot_list.append(p)
             if len(xfsl) > 0:
                 self.fslPlot.setXRange(0.0, np.max(xfsl))
                 self.fslPlot.setYRange(
@@ -1743,7 +1769,7 @@ class IVCurve(AnalysisModule):
             for i, k in enumerate(self.allisi.keys()):
                 nspk = len(self.allisi[k])
                 xisi = np.arange(nspk)
-                self.fslPlot.plot(
+                p = self.fslPlot.plot(
                     x=xisi,
                     y=self.SA.allisi[k] * yfslsc,
                     clear=clear,
@@ -1753,6 +1779,7 @@ class IVCurve(AnalysisModule):
                     symbolPen=pen,
                     symbolBrush=filledbrush,
                 )
+                self.plot_list.append(p)
                 clear = False
                 maxspk = max(nspk, maxspk)
                 maxisi = max(np.max(self.allisi[k]), maxisi)
