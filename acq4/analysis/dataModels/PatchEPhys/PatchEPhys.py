@@ -232,6 +232,8 @@ def getClampFile(protoDH):
     return None
 
 def isClampFile(fh):
+    if fh is None:
+        return False
     if fh.shortName() not in deviceNames['Clamp'] and fh.shortName()[:-3] not in deviceNames['Clamp']:
         return False
     else:
@@ -422,6 +424,8 @@ def getBridgeBalanceCompensation(data_handle):
 
 def getSampleRate(data_handle):
     """given clamp data, return the data sampling rate """
+    if data_handle is None:
+        return(np.nan)  # no file, no rate...
     if not isClampFile(data_handle):
         raise Exception('%s not a clamp file.' % data_handle.shortName())
     data = data_handle.read(readAllData=False)
@@ -720,6 +724,8 @@ class GetClamps():
             self.holding = getClampHoldingLevel(data_file_handle)
             self.amplifierSettings = getWCCompSettings(data_file_handle)
             self.clampState = getClampState(data_file_handle)
+            self.sample_interval = 1. / getSampleRate(data_file_handle)
+            
             # print self.devicesUsed
             cmd = getClampCommand(data_file)
 
@@ -770,7 +776,6 @@ class GetClamps():
         traces = traces[:len(self.values)]
         self.traces = MetaArray(traces, info=info)
 #        sfreq = self.dataModel.getSampleRate(data_file_handle)
-        self.sample_interval = 1. / getSampleRate(data_file_handle)
         vc_command = data_dir_handle.parent().info()['devices'][self.clampDevices[0]]
         self.tstart = 0.01
         self.tdur = 0.5

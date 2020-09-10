@@ -278,6 +278,7 @@ class IVCurve(AnalysisModule):
         self.spk = []
         self.Sequence = ""
         self.ivss = []  # steady-state IV (window 2)
+        self.ivss_cmd = []
         self.ivpk = []  # peak IV (window 1)
         self.fsl = []  # first spike latency
         self.fisi = []  # first isi
@@ -1369,6 +1370,7 @@ class IVCurve(AnalysisModule):
         if data1.shape[1] == 0 or data1.shape[0] == 1:
             return  # skip it
         self.ivss = []
+        self.ivss_cmd = []
 
         # check out whether there are spikes in the window that is selected
         threshold = self.ctrl.IVCurve_SpikeThreshold.value() * 1e-3
@@ -1416,9 +1418,10 @@ class IVCurve(AnalysisModule):
                 self.ivss = self.ivss - self.yleak
             except:
                 raise ValueError("IVCurve Leak subtraction: no valid points to correct")
-        isort = np.argsort(self.ivss_cmd)
-        self.ivss_cmd = self.ivss_cmd[isort]
-        self.ivss = self.ivss[isort]
+        if len(self.ivss_cmd) > 0:
+            isort = np.argsort(self.ivss_cmd)
+            self.ivss_cmd = self.ivss_cmd[isort]
+            self.ivss = self.ivss[isort]
         self.analysis_summary["IV_Curve_ss"] = [self.ivss_cmd, self.ivss]
         self.update_IVPlot()
 

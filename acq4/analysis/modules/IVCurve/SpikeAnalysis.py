@@ -389,11 +389,13 @@ class SpikeAnalysis:
             if n > 0:
                 nsp.append(len(list(self.spikeShape[m].keys())))
                 icmd.append(self.spikeShape[m][0]["current"])
+        if len(icmd) == 0:
+            return(np.nan, np.nan)
         try:
             iamin = np.argmin(icmd)
         except:
             raise ValueError(
-                "IVCurve:SpikeAnalysis:getIVCurrentThresholds - icmd seems to be ? : ", icmd
+                "IVCurve:SpikeAnalysis:getIVCurrentThresholds - icmd seems to be empty : ", icmd
             )
         imin = np.min(icmd)
         ia150 = np.argmin(np.abs(1.5 * imin - np.array(icmd)))
@@ -430,6 +432,8 @@ class SpikeAnalysis:
         ) = (
             self.getIVCurrentThresholds()
         )  # get the indices for the traces we need to pull data from
+        if np.isnan(jthr) or np.isnan(j150):  # possibly no spikes, so nothing to do
+            return
         jthr = int(jthr)
         j150 = int(j150)
         if j150 not in list(self.spikeShape.keys()):
