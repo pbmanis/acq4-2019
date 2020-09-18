@@ -4,12 +4,9 @@ source $ENVNAME/bin/activate
 pip install --upgrade pip  # be sure pip is up to date in the new env.
 pip install wheel  # seems to be missing (note singular)
 pip install cython
-# # if requirements.txt is not present, create:
-# # pip install pipreqs
-# # pipreqs
-#
-# #Then:
-#
+pip install requests
+
+# now get the dependencies
 pip install -r requirements.txt
 source $ENVNAME/bin/activate
 
@@ -19,3 +16,4 @@ source $ENVNAME/bin/activate
 # nrnivmodl cnmodel/mechanisms
 
 python setup.py develop
+source $ENVNAME/bin/activate

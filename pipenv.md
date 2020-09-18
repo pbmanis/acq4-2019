@@ -1,29 +1,31 @@
-Install acq4 with pip environment
-=================================
+Install acq4 with pip environment in mac OSX (this might mostly work for Linux as well)
+=======================================================================================
 
-(Python 3.3 and later only)
+(Python 3.78 and later only)
 
-pip install --upgrade pip
-pip install --user virtualenv
+After you clone acq4-2019, change to the directory you cloned it into (e.g., something/acq4-2019)
 
-Now, make a virtual environment::
+Make sure the make_env script is executable (it should be by default, but check it). 
+If it is not, then make it so:
 
-    python -m venv env
+    >> chmod +x make_env.sh
 
-Activate it::
+Next install everything needed and build the environment with:
 
-    source env/bin/activate
-    pip install --upgrade pip
-    pip install requests
+    ./make_env.sh  
 
-Install what is needed::
+Then, still in the acq4-2019 directory:
 
-    pip install matplotlib numpy scipy pyparsing==2.0.3 pyserial pyqt5 lmfit h5py six pillow
+    >> source acq4_venv/bin/activate
+    >> python -m acq4
 
-Run::
+If you are using the .zshrc shell under MacOSX, you can make an alias in your .zshrc file:
 
-    python -m acq4
+    alias acq4="deactivate; cd ~/Desktop/acq4-2019; source acq4_venv/bin/activate; python -m acq4; deactivate;"  # load up and run acq4 in it's own env.
 
+This will allow you to type "acq4" at the terminal, and it should start the program up. When you exit, it should deactivate the environment.
+Don't worry if the first "deactivate" throws an error.
 
+(9/18/2020 pbm)
 
 
