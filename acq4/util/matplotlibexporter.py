@@ -215,8 +215,8 @@ def update_font(axl, size=6, font=stdFont):
         #     y.set_fontproperties(fontProperties)
         # ax.set_xticklabels(ax.get_xticks(), fontProperties)
         # ax.set_yticklabels(ax.get_yticks(), fontProperties)
-        ax.xaxis.set_smart_bounds(True)
-        ax.yaxis.set_smart_bounds(True)
+        # ax.xaxis.set_smart_bounds(True)
+        # ax.yaxis.set_smart_bounds(True)
         ax.tick_params(axis="both", labelsize=9)
 
 
