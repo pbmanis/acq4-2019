@@ -619,8 +619,10 @@ class SpikeAnalysis:
             )
             error = Fitting.Fitting().getFitErr()
             self.FIKeys = f[6]
+            if len(fpar) == 0:
+                return None  # no fit... 
             for i, k in enumerate(self.FIKeys):
-                self.analysis_summary[k] = fpar[0][i]
+                    self.analysis_summary[k] = fpar[0][i]
         elif self.FIGrowth == 2:  # FIGrowth is 2, so use simpler fit
             #            print ('Fitting with 1 simple')
             bounds = (np.sort([x[x0], x[x1]]), (0.0, ymax * 5.0), (0.0001, 100.0))
@@ -648,6 +650,8 @@ class SpikeAnalysis:
             error = Fitting.Fitting().getFitErr()
             self.FIKeys = f[6]
             imap = [-1, 0, -1, 1, 2]
+            if len(fpar) == 0:
+                return None  # no fit... 
             for i, k in enumerate(FIKeys):
                 if imap[i] == -1:
                     self.analysis_summary[k] = 0.0
@@ -703,6 +707,8 @@ class SpikeAnalysis:
             error = Fitting.Fitting().getFitErr()
             self.FIKeys = f[6]
             # imap = [-1, 0, -1, 1, 2]
+            if len(fpar) == 0:
+                return None  # no fit... 
             for i, k in enumerate(self.FIKeys):
                 self.analysis_summary[k] = fpar[0][
                     i
@@ -751,6 +757,8 @@ class SpikeAnalysis:
             self.FIKeys = f[6]
             # imap = [-1, 0, -1, 1, 2]
             #            print self.FIKeys
+            if len(fpar) == 0:
+                return None  # no fit... 
             for i, k in enumerate(self.FIKeys):
                 self.analysis_summary[k] = fpar[0][
                     i
