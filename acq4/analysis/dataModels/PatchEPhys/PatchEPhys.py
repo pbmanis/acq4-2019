@@ -7,6 +7,7 @@ from collections import OrderedDict
 import functools
 from acq4.util.metaarray import *
 import numpy as np
+from six.moves import range
 
 protocolNames = {
     'IV Curve': ('cciv.*', 'vciv.*'),
@@ -629,9 +630,13 @@ class GetClamps():
         clampInfo = {}
         if dh is None:
             return None
-
+        
         dirs = dh.subDirs()
         clampInfo['dirs'] = dirs
+        # get clamp device for this protocol to help with setup.
+        # We assume here that the clamp device will NOT change within the protocol.
+        data_dir_handle = dh[dirs[0]]  # get the first directory
+        self.clampDevices = getClampDeviceNames(data_dir_handle)
         traces = []
         cmd = []
         cmd_wave = []
@@ -642,9 +647,8 @@ class GetClamps():
         sequence_values = None
         self.sequence = listSequenceParams(dh)
         # building command voltages - get amplitudes to clamp
-        clamp = ('Clamp1', 'Pulse_amplitude')
+        clamp = (self.clampDevices[0], 'Pulse_amplitude')
         reps = ('protocol', 'repetitions')
-
         if clamp in self.sequence:
             self.clampValues = self.sequence[clamp]
             self.nclamp = len(self.clampValues)
@@ -780,9 +784,9 @@ class GetClamps():
         self.tstart = 0.01
         self.tdur = 0.5
         self.tend = 0.510
-        # print 'vc_command: ', vc_command.keys()
+        # print( 'vc_command: ', vc_command.keys())
         # print vc_command['waveGeneratorWidget'].keys()
-        if 'waveGeneratorWidget' in vc_command.keys():
+        if 'waveGeneratorWidget' in list(vc_command.keys()):
             # print 'wgwidget'
             try:
                 vc_info = vc_command['waveGeneratorWidget']['stimuli']['Pulse']
@@ -797,7 +801,8 @@ class GetClamps():
                     pulsestart = eval(pulse[0])
                     pulsedur = eval(pulse[1])
                 except:
-                    raise Exception('WaveGeneratorWidget not found')
+                    # print('WaveGeneratorWidget not found')
+                    raise Exception("WaveGenerator Widget and data not found\nThis protocol run does not have command steps")
                     pulsestart = 0.
                     pulsedur = np.max(self.time_base)
         elif 'daqState' in vc_command:
