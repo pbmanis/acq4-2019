@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 """
 Magic Reload Library
 Luke Campagnola   2010
@@ -20,9 +21,13 @@ Does NOT:
        print module.someObject
 """
 
-from __future__ import print_function
+
+"""
+Current acq4 reloader from Campagnola zeiss is nice git repo
+"""
+
+
 import inspect, os, sys, gc, traceback, types
-from pathlib import Path
 from .debug import printExc
 try:
     from importlib import reload as orig_reload
@@ -31,73 +36,75 @@ except ImportError:
 
 
 py3 = sys.version_info >= (3,)
-pyver = sys.version_info
+
 
 def reloadAll(prefix=None, debug=False):
-    """Automatically reload everything whose __file__ begins with prefix.
-    - Skips reload if the file has not been updated (if .pyc is newer than .py)
-    - if prefix is None, checks all loaded modules
+    """Automatically reload all modules whose __file__ begins with *prefix*.
+    Skips reload if the file has not been updated (if .pyc is newer than .py)
+    If *prefix* is None, then all loaded modules are checked.
+    Returns a dictionary {moduleName: (reloaded, reason)} describing actions taken
+    for each module.
     """
     failed = []
     changed = []
-    system_modules = set(sys.builtin_module_names)
-    loaded_modules = sys.modules
-
+    ret = {}
     for modName, mod in list(sys.modules.items()):  ## don't use iteritems; size may change during reload
         if not inspect.ismodule(mod):
+            ret[modName] = (False, 'not a module')
             continue
         if modName == '__main__':
+            ret[modName] = (False, 'ignored __main__')
             continue
-        if modName in system_modules:
+        
+        # Ignore modules without a __file__ that is .py or .pyc
+        if getattr(mod, '__file__', None) is None:
+            ret[modName] = (False, 'module has no __file__')
             continue
-
-        # if not (modName.startswith('acq4.')):
-        #     continue
-
-        ## Ignore if the file name does not start with prefix
-        if not hasattr(mod, '__file__'):
-            continue
-        if mod.__file__ is None:
-            continue
+        
         if os.path.splitext(mod.__file__)[1] not in ['.py', '.pyc']:
+            ret[modName] = (False, '%s not a .py/pyc file' % str(mod.__file__))
             continue
-        # print('mod.file: ', mod.__file__)
-        
+
+        # Ignore if the file name does not start with prefix
         if prefix is not None and mod.__file__[:len(prefix)] != prefix:
-            # print('    bad prefix')
+            ret[modName] = (False, 'file %s not in prefix %s' % (mod.__file__, prefix))
             continue
         
-        ## ignore if the .pyc is newer than the .py (or if there is no pyc or py)
         py = os.path.splitext(mod.__file__)[0] + '.py'
+        if py in changed:
+            # already processed this module
+            continue
         if not os.path.isfile(py):
             # skip modules that lie about their __file__
-            # print('    skipping : ', py)
+            ret[modName] = (False, '.py does not exist: %s' % py)
             continue
-        p_parent = Path(py).parent
-        p_stem = Path(py).stem
-        if py3: # insert pycache directory
-            pyc = Path(p_parent, '__pycache__', p_stem + '.cpython-%d%d.pyc' % (pyver[0], pyver[1])) # different location
-        else:
-            pyc = py + 'c'
-        pyc = str(pyc)
-        # print('pycfile: ', pyc)
-        # print(os.path.isfile(pyc), os.stat(pyc).st_mtime, os.stat(py).st_mtime)
-        if py not in changed and os.path.isfile(pyc) and (os.stat(pyc).st_mtime >= os.stat(py).st_mtime):
-            # print('    unchanged: ',py )#if debug:
-                #print "Ignoring module %s; unchanged" % str(mod)
+
+        # if source file is newer than cache file, then it needs to be reloaded.
+        pyc = getattr(mod, '__cached__', py + 'c')
+        if not os.path.isfile(pyc):
+            ret[modName] = (False, 'code has no pyc file to compare')
             continue
-        changed.append(py)  ## keep track of which modules have changed to insure that duplicate-import modules get reloaded.
-        # print('    *** File changed: ', py)
+
+        if os.stat(pyc).st_mtime > os.stat(py).st_mtime:
+            ret[modName] = (False, 'code has not changed since compile')
+            continue
+
+        # keep track of which modules have changed to ensure that duplicate-import modules get reloaded.
+        changed.append(py)  
 
         try:
             reload(mod, debug=debug)
-            print('Reloaded: ', modName)
-        except:
+            ret[modName] = (True, None)
+        except Exception as exc:
             printExc("Error while reloading module %s, skipping\n" % mod)
             failed.append(mod.__name__)
+            ret[modName] = (False, 'reload failed: %s' % traceback.format_exception_only(type(exc), exc))
         
     if len(failed) > 0:
         raise Exception("Some modules failed to reload: %s" % ', '.join(failed))
+
+    return ret
+
 
 def reload(module, debug=False, lists=False, dicts=False):
     """Replacement for the builtin reload function:
@@ -335,7 +342,8 @@ if __name__ == '__main__':
     import os
     if not os.path.isdir('test1'):
         os.mkdir('test1')
-    open('test1/__init__.py', 'w')
+    with open('test1/__init__.py', 'w'):
+        pass
     modFile1 = "test1/test1.py"
     modCode1 = """
 import sys
@@ -372,8 +380,10 @@ def fn():
     print("fn: %s")
 """ 
 
-    open(modFile1, 'w').write(modCode1%(1,1))
-    open(modFile2, 'w').write(modCode2%"message 1")
+    with open(modFile1, 'w') as f:
+        f.write(modCode1 % (1, 1))
+    with open(modFile2, 'w') as f:
+        f.write(modCode2 % ("message 1", ))
     import test1.test1 as test1
     import test2
     print("Test 1 originals:")
@@ -409,7 +419,8 @@ def fn():
     c1.fn()
     
     os.remove(modFile1+'c')
-    open(modFile1, 'w').write(modCode1%(2,2))
+    with open(modFile1, 'w') as f:
+        f.write(modCode1 %(2, 2))
     print("\n----RELOAD test1-----\n")
     reloadAll(os.path.abspath(__file__)[:10], debug=True)
     
@@ -420,7 +431,8 @@ def fn():
     
     
     os.remove(modFile2+'c')
-    open(modFile2, 'w').write(modCode2%"message 2")
+    with open(modFile2, 'w') as f:
+        f.write(modCode2 % ("message 2", ))
     print("\n----RELOAD test2-----\n")
     reloadAll(os.path.abspath(__file__)[:10], debug=True)
 
@@ -456,8 +468,10 @@ def fn():
 
     os.remove(modFile1+'c')
     os.remove(modFile2+'c')
-    open(modFile1, 'w').write(modCode1%(3,3))
-    open(modFile2, 'w').write(modCode2%"message 3")
+    with open(modFile1, 'w') as f:
+        f.write(modCode1 % (3, 3))
+    with open(modFile2, 'w') as f:
+        f.write(modCode2 % ("message 3", ))
     
     print("\n----RELOAD-----\n")
     reloadAll(os.path.abspath(__file__)[:10], debug=True)
@@ -493,99 +507,3 @@ def fn():
     os.remove(modFile2+'c')
     os.system('rm -r test1')
 
-
-
-
-
-
-
-
-#
-#        Failure graveyard ahead:
-#
-
-
-"""Reload Importer:
-Hooks into import system to 
-1) keep a record of module dependencies as they are imported
-2) make sure modules are always reloaded in correct order
-3) update old classes and functions to use reloaded code"""
-
-#import imp, sys
-
-## python's import hook mechanism doesn't work since we need to be 
-## informed every time there is an import statement, not just for new imports
-#class ReloadImporter:
-    #def __init__(self):
-        #self.depth = 0
-        
-    #def find_module(self, name, path):
-        #print "  "*self.depth + "find: ", name, path
-        ##if name == 'PyQt4' and path is None:
-            ##print "PyQt4 -> PySide"
-            ##self.modData = imp.find_module('PySide')
-            ##return self
-        ##return None ## return none to allow the import to proceed normally; return self to intercept with load_module
-        #self.modData = imp.find_module(name, path)
-        #self.depth += 1
-        ##sys.path_importer_cache = {}
-        #return self
-        
-    #def load_module(self, name):
-        #mod =  imp.load_module(name, *self.modData)
-        #self.depth -= 1
-        #print "  "*self.depth + "load: ", name
-        #return mod
-
-#def pathHook(path):
-    #print "path hook:", path
-    #raise ImportError
-#sys.path_hooks.append(pathHook)
-
-#sys.meta_path.append(ReloadImporter())
-
-
-### replace __import__ with a wrapper that tracks module dependencies
-#modDeps = {}
-#reloadModule = None
-#origImport = __builtins__.__import__
-#def _import(name, globals=None, locals=None, fromlist=None, level=-1, stack=[]):
-    ### Note that stack behaves as a static variable.
-    ##print "  "*len(importStack) + "import %s" % args[0]
-    #stack.append(set())
-    #mod = origImport(name, globals, locals, fromlist, level)
-    #deps = stack.pop()
-    #if len(stack) > 0:
-        #stack[-1].add(mod)
-    #elif reloadModule is not None:     ## If this is the top level import AND we're inside a module reload
-        #modDeps[reloadModule].add(mod)
-            
-    #if mod in modDeps:
-        #modDeps[mod] |= deps
-    #else:
-        #modDeps[mod] = deps
-        
-    
-    #return mod
-    
-#__builtins__.__import__ = _import
-
-### replace 
-#origReload = __builtins__.reload
-#def _reload(mod):
-    #reloadModule = mod
-    #ret = origReload(mod)
-    #reloadModule = None
-    #return ret
-#__builtins__.reload = _reload
-
-
-#def reload(mod, visited=None):
-    #if visited is None:
-        #visited = set()
-    #if mod in visited:
-        #return
-    #visited.add(mod)
-    #for dep in modDeps.get(mod, []):
-        #reload(dep, visited)
-    #__builtins__.reload(mod)
