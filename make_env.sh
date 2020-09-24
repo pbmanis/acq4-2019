@@ -1,15 +1,26 @@
+set -e # force failure if anyting fails in script - ensuring completion
+set -o errexit
 ENVNAME="acq4_venv"
-echo "Removing previous environment: $ENVNAME"
-rm -r $ENVNAME
-python3.7 -m venv $ENVNAME
-source $ENVNAME/bin/activate
+if [ -d $ENVNAME ]
+then
+    echo "Removing previous environment: $ENVNAME"
+    set +e
+    rsync -aR --remove-source-files $ENVNAME ~/.Trash/ || exit 1
+    set -e
+    rm -R $ENVNAME
+else
+    echo "No previous environment - ok to proceed"
+fi
+
+python3.7 -m venv $ENVNAME || exit 1
+source $ENVNAME/bin/activate || exit 1
 pip3 install --upgrade pip  # be sure pip is up to date in the new env.
 pip3 install wheel  # seems to be missing (note singular)
 pip3 install cython
 pip3 install requests
 
 # now get the dependencies
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt || exit 1
 source $ENVNAME/bin/activate
 
 # build the mechanisms
@@ -19,5 +30,6 @@ source $ENVNAME/bin/activate
 python --version
 python tools/rebuildUI.py pyqt5 -d acq4
 python tools/rebuildUI.py pyqt5 -d acq4/pyqtgraph -v -f
-python setup.py develop
+python setup.py develop || exit 1
 source $ENVNAME/bin/activate
+echo "Success in installing acq4 environment!"
