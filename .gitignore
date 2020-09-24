@@ -6,11 +6,12 @@
 # git commit -m "message for the commit"
 #
 /env  # any pip environment. 
+acq4_venv/ # our acq4 pip environment
 *.pyc
 *~
 *.renamed*
 *.bak
-acq4/**/*_pyqt5.py
+**/acq4/**/*_pyqt5.py
 acq4/**/*_pyqt4.py
 acq4/**/*_pyside.py
 
