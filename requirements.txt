@@ -1,4 +1,4 @@
-# acq4===0.9.3-py3pbm-beed7a101c-
+# acq4 requirements: v0.9.3, 0.9.4
 asteval==0.9.18
 certifi==2019.11.28
 chardet==3.0.4
