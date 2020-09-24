@@ -1,3 +1,4 @@
+from __future__ import print_function
 #!/usr/bin/python
 """
 Script for compiling Qt Designer .ui files to .py
@@ -26,6 +27,8 @@ parser.add_argument('-f', '--force', action='store_true',
                         help='Force')                    
 parser.add_argument('-d', '--directory', type=str, default=None, nargs='*',
                         help='Starting directory')
+parser.add_argument('-v', '--verbose', action='store_true',
+                        help="Verbose mode: print out all actions")
 
 args = parser.parse_args()
 
@@ -51,34 +54,48 @@ for arg in args.directory:
         print('Argument "%s" is not a directory or .ui file.' % arg)
         sys.exit(-1)
 
-print('uifiles: ', uifiles)
-
+print(f"Checking to rebuild UI files if needed in:")
+for arg in args.directory:
+    print(f"     {arg:s}")
+    
+if args.verbose:
+    print('Known uifiles:')
+    for uif in uifiles:
+        print('   ', uif)
 
 
 # rebuild all requested ui files
+n_rebuilt = 0
 for ui in uifiles:
     base, _ = os.path.splitext(ui)
     compiler = args.pyversion
     ext = compilersext[compiler]
-    print('compiler, ext: ', compiler, ext)
+    # print('compiler, ext: ', compiler, ext)
     # for compiler, ext in [(pyqt4uic, '_pyq4t.py'), (pysideuic, '_pyside.py'), (pyqt5uic, '_pyqt5.py')]:
     pylong = base + ext
     pyshort = base + '.py'
     if not force and os.path.exists(pylong) and os.stat(ui).st_mtime <= os.stat(pylong).st_mtime:
-        pass
-        # print("Skipping %s; already compiled." % py)
+        if args.verbose:
+            print(f"Skipping precompiled {base:s} as {ext:s}")
     else:
         cmd = '%s %s > %s' % (compilers[compiler], ui, pylong)
-        print(cmd)
+        print("    Rebuilding long: ", cmd)
         try:
             subprocess.check_call(cmd, shell=True)
+            n_rebuilt += 1
         except subprocess.CalledProcessError:
             print('Failed to compile: ', pylong, pyshort)  # no support for that one
             # os.remove(pylong)
         cmd = '%s %s > %s' % (compilers[compiler], ui, pyshort)
-        print(cmd)
+        print("    Rebuilding short: ", cmd)
         try:
             subprocess.check_call(cmd, shell=True)
+            n_rebuilt += 1
         except subprocess.CalledProcessError:
             print('Failed to compile: ', pyshort, pyshort)  # no support for that one
             # os.remove(pylong)
+
+if n_rebuilt == 0:
+    print("    No UI files needed to be rebuilt")
+else:
+    print(f"     Rebulit {n_rebuilt:d} UI files")

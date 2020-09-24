@@ -190,12 +190,12 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering",
         ],
-    install_requires = [
-        'numpy',
-        'scipy',
-        'h5py',
-        'pillow',
-        ],
+    # install_requires = [
+    #     'numpy',
+    #     'scipy',
+    #     'h5py',
+    #     'pillow',
+    #     ],
     scripts = scripts,
     **setupOpts
 )
