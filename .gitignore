@@ -14,16 +14,16 @@ acq4_venv/ # our acq4 pip environment
 *_pyqt5.py
 *_pyqt4.py
 *_pyside.py
-# acq4/**/*_pyqt4.py
-# acq4/**/*_pyqt4.py
-# acq4/**/*_pyside.py
+acq4/**/*_pyqt4.py
+acq4/**/*_pyqt4.py
+acq4/**/*_pyside.py
 
-# acq4/**/*template.py
-# acq4/**/*template_pyqt5.py
-# acq4/**/*template_pyside.py
-# acq4/**/*Template.py
-# acq4/**/*Template_pyqt5.py
-# acq4/**/*Template_pyside.py
+acq4/**/*template.py
+acq4/**/*template_pyqt5.py
+acq4/**/*template_pyside.py
+acq4/**/*Template.py
+acq4/**/*Template_pyqt5.py
+acq4/**/*Template_pyside.py
 MANIFEST
 dist
 build
