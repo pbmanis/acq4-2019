@@ -102,7 +102,7 @@ class pbm_ImageAnalysis(AnalysisModule):
         self.rois = []
         self.currentRoi = None
         self.imageData = np.array(None)  # Image Data array, information about the data is in the dataState dictionary
-        self.lastROITouched=[]
+        self.lastROITouched = None
         self.spikesFound = None
         self.burstsFound = None
         self.spikeTimes = []
@@ -128,6 +128,7 @@ class pbm_ImageAnalysis(AnalysisModule):
         self._sizeHint = (1280, 900)   # try to establish size of window
 
         self.ctrlWidget = Qt.QWidget()
+        print(dir(ctrlTemplate))
         self.ctrl = ctrlTemplate.Ui_Form()
         self.ctrl.setupUi(self.ctrlWidget)
         
@@ -480,7 +481,13 @@ class pbm_ImageAnalysis(AnalysisModule):
                     else:
                         (img, info) = self.tryDownSample(fhandle)
                         self.imageInfo = info
-                    self.imageTimes = self.imageInfo[0]['values']
+
+
+                    self.trigger_wgw = dh.parent().info()['devices']['Camera']['daqState']['channels']['trigger']['waveGeneratorWidget']
+                    # print('trigger wavegen function: ', self.trigger_wgw['function'])
+                    # get the delay from the wavegen function
+                    trigger_delay = self.trigger_wgw['stimuli']['PulseTrain']['start']['value']
+                    self.imageTimes = self.imageInfo[0]['values'] + trigger_delay
                     self.imageData = img.view(np.ndarray)
                     sh = self.imageData.shape
                     self.scanTimes = np.zeros(sh[1]*sh[2]).reshape((sh[1], sh[2]))
@@ -593,13 +600,15 @@ class pbm_ImageAnalysis(AnalysisModule):
                 #self.traces = MetaArray(np.vstack(traces), info=info)
             self.imageData = self.rawData
         self.ROI_Plot.clearPlots()
+        for roi in self.AllRois:
+            roi.plot = None
         self.getDataStruct()
         self.currentDataDirectory = dh
         self.ctrl.ImagePhys_View.setCurrentIndex(0)  # always set to show the movie
         self.specImageCalcFlag = False  # we need to recalculate the spectrum
-        npts = self.imageData.shape[0]/2
+        npts = int(self.imageData.shape[0]/2)
         freq = np.fft.fftfreq(npts, d=self.imagedT)
-        freq = freq[0:npts/2 + 1]
+        freq = freq[0:int(npts/2) + 1]
         self.ctrlROIFunc.ImagePhys_SpecHPF.setMinimum(0.0)
         self.ctrlROIFunc.ImagePhys_SpecHPF.setMaximum(np.max(freq))
         self.ctrlROIFunc.ImagePhys_SpecHPF.setValue(freq[1])
@@ -696,7 +705,8 @@ class pbm_ImageAnalysis(AnalysisModule):
         self.imageView.getView().setAspectLocked(True)
         self.imageView.imageItem.resetTransform()
         if self.imageType == 'PMT':
-            self.imageView.imageItem.scale((self.rs.width/self.rs.height)/(float(self.imageData.shape[1])/float(self.imageData.shape[2])), 1.0)
+            self.imageView.imageItem.scale((self.rs.width/self.rs.height)/
+                                           (float(self.imageData.shape[1])/float(self.imageData.shape[2])), 1.0)
         self.imageView.autoRange()
 
         self.dataState['Loaded'] = True
@@ -976,8 +986,8 @@ class pbm_ImageAnalysis(AnalysisModule):
         if method == 4:
             self.slowFilterImage()  # slow filtering normalization: (F-Fslow)/Fslow on pixel basis over time
         print('normalize method: ', method)
-        print(self.dataState['ratioLoaded'])
-        print(self.useRatio)
+        print('ratio loaded: ', self.dataState['ratioLoaded'])
+        print('use ratio: ', self.useRatio)
         if method == 4:  # g/r ratio  - future: requires image to be loaded (hooks in place, no code yet)
             if self.dataState['ratioLoaded'] and self.useRatio:
                 self.GRFFImage() # convert using the ratio
@@ -1516,22 +1526,54 @@ class pbm_ImageAnalysis(AnalysisModule):
     #--------------- From PyImageAnalysis3.py: -----------------------------
     #---------------- ROI routines on Images  ------------------------------
 
+    def addOneROI(self, pos=(0, 0), hw=None):
+        """
+        append one roi to the self.AllRois list, put it on the screen (scene), and
+        make sure it is actively connected to code.
+        :param pos:  Initial roi posistion (tuple, (x, y))
+        :param hw:  Initial ROI height and position (tuple (h,w)). If not defined, will get from current roi default
+        :return: The roi handle is returned.
+        """
+        if hw is None:
+            dr = self.ctrlROIFunc.ImagePhys_ROISize.value()
+            hw = [dr, dr]
+        roi = pg.RectROI(pos, hw, scaleSnap=True, translateSnap=True) # , hoverPen = pg.mkPen('r', width=2))
+        roi.addRotateHandle(pos=(0, 0), center=(0.5, 0.5))  # handle at left top, rotation about center
+#       roi = qtgraph.widgets.EllipseROI(pos, hw, scaleSnap=True, translateSnap=True)
+#       roi = qtgraph.widgets.MultiLineROI([[0,0], [5,5], [10,10]], 3, scaleSnap=True, translateSnap=True)
+        roi.ID = self.nROI  # give each ROI a unique identification number
+        rgb = self.RGB[self.nROI]
+        self.nROI = self.nROI + 1
+        roi.setPen(Qt.QPen(Qt.QColor(rgb[0], rgb[1], rgb[2])), width=1)
+        roi.plot = None # object where roi data is plotted
+        roi.color = rgb
+        self.AllRois.append(roi)
+        self.imageView.addItem(roi)
+        self.updateThisROI(self.AllRois[-1])  # compute the new ROI data
+        roi.sigRegionChanged.connect(self.updateThisROI)  # if data region changes, update the information
+        roi.sigHoverEvent.connect(self.showThisROI)  # a hover just causes the display below to show what is here already.
+        return (roi)
+
     def clearAllROI(self):
         """ remove all rois and all references to the rois """
         for i, roi in enumerate(self.AllRois):
             roi.hide()
+            self.imageView.scene.removeItem(roi)
+        self.imageView.scene.update()  # needed to make sure scene is updated.
 
         self.AllRois = []
         self.nROI = 0
         self.FData = []  # FData is the raw ROI data before any corrections
         self.BFData = []  # ROI data after all corrections
-        self.lastROITouched = []
+        self.lastROITouched = None
         self.ROI_Plot.clear()
         #self.clearPlots()
 
     def deleteLastTouchedROI(self):
         """ remove the currently (last) selected roi and all references to it,
         then select and display a new ROI """
+        if self.lastROITouhed is None:
+            return
         ourWidget = self.lastROITouched
         if ourWidget not in self.AllRois:
             raise Exception("Delete ROI - Error: Last ROI was not in ROI list?")
@@ -1555,32 +1597,6 @@ class pbm_ImageAnalysis(AnalysisModule):
         self.plotdata(yMinorTicks=0, yMajorTicks=3,
                       yLabel=u'F0<sub>ROI %d</sub>')
 
-    def addOneROI(self, pos=(0, 0), hw=None):
-        """
-        append one roi to the self.AllRois list, put it on the screen (scene), and
-        make sure it is actively connected to code.
-        :param pos:  Initial roi posistion (tuple, (x, y))
-        :param hw:  Initial ROI height and position (tuple (h,w)). If not defined, will get from current roi default
-        :return: The roi handle is returned.
-        """
-        if hw is None:
-            dr = self.ctrlROIFunc.ImagePhys_ROISize.value()
-            hw = [dr, dr]
-        roi = pg.RectROI(pos, hw, scaleSnap=True, translateSnap=True)
-        roi.addRotateHandle(pos=(0, 0), center=(0.5, 0.5))  # handle at left top, rotation about center
-#       roi = qtgraph.widgets.EllipseROI(pos, hw, scaleSnap=True, translateSnap=True)
-#       roi = qtgraph.widgets.MultiLineROI([[0,0], [5,5], [10,10]], 3, scaleSnap=True, translateSnap=True)
-        roi.ID = self.nROI  # give each ROI a unique identification number
-        rgb = self.RGB[self.nROI]
-        self.nROI = self.nROI + 1
-        roi.setPen(Qt.QPen(Qt.QColor(rgb[0], rgb[1], rgb[2])))
-        roi.color = rgb
-        self.AllRois.append(roi)
-        self.imageView.addItem(roi)
-        self.updateThisROI(self.AllRois[-1])  # compute the new ROI data
-        roi.sigRegionChanged.connect(self.updateThisROI)  # if data region changes, update the information
-        roi.sigHoverEvent.connect(self.showThisROI)  # a hover just causes the display below to show what is hre already.
-        return (roi)
 
     # def plotImageROIs(self, ourWidget):
     #     """ plots a single ROIs in the image - as an initial instantiation.
@@ -1659,48 +1675,53 @@ class pbm_ImageAnalysis(AnalysisModule):
         """
         Show one ROI, highlighting it and brining it to the top of the traces
         other rois are dimmed and thinned
-        If the plot of the roi does not exist, the plot is
+        If the plot for the roi does not exist, the plot is created
         :param roi: the handle to the selected ROI
         :param livePlot: flag to allow update of plot in real time (if livePlot is not set, the roi
             may not be created at this time.  (is this ever used?)
         :return: Nothing
         """
         if roi in self.AllRois:
+            self.markROITouched(roi)
             if livePlot is True:
+
                 if self.imageType == 'camera':
                     times = self.imageTimes[0:len(self.BFData[roi.ID])]
                 elif self.imageType in ['imaging', 'PMT']:
                     times = self.scannerTimes(roi)
                 else:
                     raise ValueError('Image type for time array not known: %s', self.imageType)
-                try:
-                    roi.plot.setData(times, self.BFData[roi.ID],
-                                     pen=pg.mkPen(np.append(roi.color[0:3], 255), width=1.0))  #, pen=pg.mkPen(roi.color), clear=True)
-                except:
-                    roi.plot = self.ROI_Plot.plot(times, self.BFData[roi.ID],
-                                                  pen=pg.mkPen(np.append(roi.color[0:3], 255), width=1.0), clear=False)  # pg.mkPen('r'), clear=True)
+                if roi.plot is not None:
+                    roi.plot.setData(times, self.BFData[roi.ID], symbol='o', symbolSize=3,
+                                     pen=pg.mkPen(np.append(roi.color[0:3], 255), width=1.0), clear=False) 
+                else:
+                    roi.plot = self.ROI_Plot.plot(times, self.BFData[roi.ID], symbol='o', symbolSize=3,
+                                                  pen=pg.mkPen(np.append(roi.color[0:3], 255), width=1.0), clear=False)
                 c = np.append(roi.color[0:3], 255)
+
                 roi.plot.setPen(pg.mkPen(color=c, width=2.0))
                 roi.plot.setZValue(1000)
                 roi.show()  # make sure the roi is visible
 
         for otherroi in self.AllRois:
-            if otherroi != roi:
+            if otherroi != roi and otherroi.plot is not None:
                 c = np.append(otherroi.color[0:3], 128)
                 otherroi.plot.setPen(pg.mkPen(color=c, width=1.0))
                 otherroi.plot.setZValue(500)
+        self.imageView.scene.update()
 
     def markROITouched(self, roi):
         """
         Highlight the last touched ROI in the field
         """
-        if self.lastROITouched == []:
+        if self.lastROITouched is None:
             self.lastROITouched = roi
-            roi.pen.setWidth(0.18) # just bump up the width
-        if roi != self.lastROITouched:
-            self.lastROITouched.pen.setWidth(0.18)
-            roi.pen.setWidthF(0.12)
+            roi.pen.setWidth(0.22) # just bump up the width
+        elif roi != self.lastROITouched:
+            self.lastROITouched.pen.setWidth(0.12)
+            roi.pen.setWidth(0.22)
             self.lastROITouched = roi # save the most recent one
+
 
     def calculateAllROIs(self):
         """
@@ -1711,7 +1732,7 @@ class pbm_ImageAnalysis(AnalysisModule):
 
         currentROI = self.lastROITouched
         for ourWidget in self.AllRois:
-            tr = self.updateThisROI(ourWidget, livePlot=False)
+            tr = self.updateThisROI(ourWidget, livePlot=True)
             self.FData = self.insertFData(self.FData, tr, ourWidget)
         self.applyROIFilters(self.AllRois)
         self.updateThisROI(currentROI) # just update the latest plot with the new format.
@@ -1911,13 +1932,28 @@ class pbm_ImageAnalysis(AnalysisModule):
 
     def makeROIDataFigure(self, clear = True, gcolor = 'k'):
         self.checkMPL()
-        (self.MPLFig, self.MPL_plots) = PL.subplots(num="ROI Data", nrows = self.nROI, ncols=1,
-        sharex = True, sharey=True)
+        (self.MPLFig, self.MPL_plots) = PL.subplots(
+                num="ROI Data", nrows = self.nROI+2, ncols=1,
+                sharex = True, figsize=(7, 9))
         self.MPLFig.suptitle('ROI Traces: %s' % self.currentFileName, fontsize=10)
         ndpt = len(self.FData[0,])
+        df_max = np.max(self.FData)
         for i in range(self.nROI):
             self.MPL_plots[i].plot(self.imageTimes[0:ndpt], self.FData[i,:], color = gcolor)
-            #self.MPL_plots[i].hold(True)
+            self.MPL_plots[i].set_title(f"ROI {i:d}")
+            self.MPL_plots[i].set_ylabel('dF/F')
+
+            self.MPL_plots[i].set_ylim((-0.1, df_max))
+            self.MPL_plots[self.nROI].plot(self.imageTimes[0:ndpt], self.FData[i,:])
+        self.MPL_plots[self.nROI].set_ylim((-0.1, df_max))
+        for i in range(self.nROI+2):
+            self.MPL_plots[i].axes.spines['top'].set_visible(False)
+            self.MPL_plots[i].axes.spines['right'].set_visible(False)
+            
+        self.MPL_plots[self.nROI+1].set_xlabel("Time (sec)")
+        self.MPL_plots[self.nROI+1].plot(self.tdat, self.physData, 'k-', linewidth=0.5)
+        self.MPL_plots[self.nROI+1].set_ylabel('V (mV)')
+
         PL.show()
 
 #----------------------Stack Ops (math on images) ---------------------------------
@@ -2472,7 +2508,6 @@ class pbm_ImageAnalysis(AnalysisModule):
         else:
             F0= np.mean(self.imageData[0:1,:,:], axis=0)  # save the reference
             self.ctrl.ImagePhys_NormInfo.setText('(F-F0)/F0')
-
         self.imageData = (self.imageData - F0) / F0  # do NOT replot!
         self.dataState['Normalized'] = True
         self.dataState['NType'] = 'dF/F'
