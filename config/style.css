@@ -49,3 +49,12 @@ QDockWidget {
 QListWidget {
       background-color:"slategray";  
 }
+
+QSpinBox {
+    padding-right: 15px; /* make room for the arrows */
+    border-width: 3;
+    min-height: 24;
+    max-height: 24;
+    
+}
+
