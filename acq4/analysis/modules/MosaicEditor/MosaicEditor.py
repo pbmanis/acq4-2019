@@ -9,6 +9,7 @@ from collections import OrderedDict
 import numpy as np
 import scipy
 import scipy.stats
+import scipy.ndimage as SND
 
 import acq4.util.debug as debug
 import acq4.pyqtgraph as pg
@@ -276,7 +277,10 @@ class MosaicEditor(AnalysisModule):
         4. apply the scale.
         Use the min/max mosaic button to readjust the display scale after this
         automatic operation if the scaling is not to your liking.
+        
+        Occurs in response to "tile shading" button
         """
+        print('me rescale')
         nsel =  len(self.canvas.selectedItems())
         if nsel == 0:
             return
@@ -340,9 +344,17 @@ class MosaicEditor(AnalysisModule):
         nsel =  len(self.canvas.selectedItems())
         if nsel == 0:
             return
-        # for i in range(nsel):
-        #     self.canvas.selectedItems()[i].levelRgn.setRegion([self.ui.mosaicDisplayMin.value(),
-        #                                                        self.ui.mosaicDisplayMax.value()])
+        for i in range(nsel):
+            print('image: ', i)
+            print('min: ', self.ui.mosaicDisplayMin.value())
+            print('max: ', self.ui.mosaicDisplayMax.value())
+            # print('min data: ', np.min(SND.median_filter(self.canvas.selectedItems()[i].data, 5)))
+           #  print('max data: ', np.max(SND.median_filter(self.canvas.selectedItems()[i].data, 5)))
+           #  print('mean data: ', np.mean(SND.median_filter(self.canvas.selectedItems()[i].data, 5)))
+            # print(dir(self.canvas.selectedItems()[i]))
+            self.canvas.selectedItems()[i].graphicsItem().setLevels([self.ui.mosaicDisplayMin.value(),
+                                                self.ui.mosaicDisplayMax.value()])
+            self.canvas.selectedItems()[i].graphicsItem().update()#(self.canvas.selectedItems()[i].data)
 
     def flipUD(self):
         """
