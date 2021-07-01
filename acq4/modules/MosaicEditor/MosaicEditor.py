@@ -8,6 +8,7 @@ from collections import OrderedDict
 import numpy as np
 import scipy
 import scipy.stats
+import shapely.geometry as SG  # for geometry calculations
 
 import acq4.util.debug as debug
 import acq4.pyqtgraph as pg
@@ -73,7 +74,7 @@ class MosaicEditorWindow(QtGui.QWidget):
         self.mod = mod
 
         elems = self.mod.listElements()
-        for name, el in elems.iteritems():
+        for name, el in elems.items():
             w = self.mod.getElement(name, create=True)
             d = pg.dockarea.Dock(name=name, size=el.size())
             if w is not None:
@@ -82,7 +83,7 @@ class MosaicEditorWindow(QtGui.QWidget):
             if pos is None:
                 pos = ()
             #print d, pos
-            if isinstance(pos, basestring):
+            if isinstance(pos, str):
                 pos = (pos,)
             self.dockarea.addDock(d, *pos)
         self.elements = elems
@@ -183,6 +184,7 @@ class MosaicEditor(AnalysisModule):
         self.canvas.sigItemTransformChangeFinished.connect(self.itemMoved)
         self.ui.atlasCombo.currentIndexChanged.connect(self.atlasComboChanged)
         self.ui.normalizeBtn.clicked.connect(self.normalizeImages)
+        # self.ui.blendBtn.clicked.connect(self.blendImages)
         self.ui.tileShadingBtn.clicked.connect(self.rescaleImages)
         self.ui.mosaicApplyScaleBtn.clicked.connect(self.updateScaling)
         self.ui.mosaicFlipLRBtn.clicked.connect(self.flipLR)
@@ -320,6 +322,82 @@ class MosaicEditor(AnalysisModule):
         else:
             return self.canvas.addItem(item, type, **kwds)
 
+    def getCanvasRect(self, i):
+        canvas_i = self.canvas.selectedItems()[i]
+        # if i == 0:
+        #     print(dir(canvas_i))
+        #     print("baseTransform: ", canvas_i.baseTransform)
+        cornerpos = canvas_i.baseTransform.getTranslation()  # x and y position
+        scale = canvas_i.baseTransform.getScale()  # x and y scale
+        rectshape = canvas_i.itemRect  # QRectf (0, 0, 588, 512) - 
+        x0 = cornerpos[0] + scale[0]*rectshape.x()
+        x1 = cornerpos[0] + scale[0]*(rectshape.x() + rectshape.width())
+        y0 = cornerpos[1] + scale[1]*rectshape.y()
+        y1 = cornerpos[1] + scale[1]*(rectshape.y() + rectshape.height())
+        recti = SG.Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+        return recti
+
+    def getImageRect(self, i, rect, overlap):
+        """
+        return the coordinates in the imagedata that correspond
+        to the rectangle coordinates
+        i is the image to map
+        rect is the polygon of overlap returned by the intersection the
+        two rectangles (computed from getCanvasRect)
+        """
+        ovlap = canvas_i = self.canvas.selectedItems()[i]
+        cornerpos = canvas_i.baseTransform.getTranslation()  # x and y position
+        scale = canvas_i.baseTransform.getScale()  # x and y scale
+        rectshape = canvas_i.itemRect  # QRectf (0, 0, 588, 512) - 
+
+    
+    def getOverlapIndices(self, i, overlap):
+        """
+        return the overlap region indices for the polygon Ovelap against
+        the image i
+         
+        i_over = self.get_image_indices(i, overlap_matrix[i][j])
+        """
+        canvas_i = self.canvas.selectedItems()[i]
+        cornerpos = canvas_i.baseTransform.getTranslation()  # x and y position
+        scale = canvas_i.baseTransform.getScale()  # x and y scale
+        rectshape = canvas_i.itemRect  # QRectf (0, 0, 588, 512) - 
+        coords = SG.mapping(overlap)['coordinates'][0]
+        # print('Coords: ', coords[0])
+        (x0, y0) = coords[0]
+        (x1, y1) = coords[2]
+        ix0 = int(((x0 - cornerpos[0])/scale[0]))
+        ix1 = int(((x1 - cornerpos[0])/scale[0]))
+        iy0 = int(((y0 - cornerpos[1])/scale[1]))
+        iy1 = int(((y1 - cornerpos[1])/scale[1]))
+        [ix0, ix1] = sorted([ix0, ix1])
+        [iy0, iy1] = sorted([iy0, iy1])
+        # print(i, ix0, ix1, iy0, iy1)
+        return [ix0, ix1, iy0, iy1]
+
+    def getCanvasMeanMinMax(self):
+        """
+        Get the min/max for all of the selected images on the canvas
+        """
+        nsel =  len(self.canvas.selectedItems())
+        nxm = self.canvas.selectedItems()[0].data.shape
+        meanImage = np.zeros(nxm) # (nxm[0], nxm[1]))
+        n = 0
+        self.imageMax = 0.0
+        self.imageMin = 65536.
+        for i in range(nsel):
+            this_image = np.array(self.canvas.selectedItems()[i].data)
+            meanImage = meanImage + this_image
+            imagemax = np.amax(this_image)
+            imagemin = np.amin(this_image)
+            if imagemax > self.imageMax:
+                self.imageMax = imagemax
+            if imagemin < self.imageMin:
+                self.imageMin = imagemin
+            n = n + 1
+        meanImage = meanImage/n # np.mean(meanImage[0:n], axis=0)
+        return meanImage, self.imageMin, self.imageMax
+        
     def rescaleImages(self):
         """
         Apply corrections to the images and rescale the data.
@@ -335,53 +413,83 @@ class MosaicEditor(AnalysisModule):
         if nsel == 0:
             return
        # print dir(self.selectedItems()[0].data)
-        nxm = self.canvas.selectedItems()[0].data.shape
-        meanImage = np.zeros((nxm[0], nxm[1]))
         nhistbins = 100
         # generate a histogram of the global levels in the image (all images selected)
         hm = np.histogram(np.dstack([x.data for x in self.canvas.selectedItems()]), nhistbins)
-        # print hm
-        #$meanImage = np.mean(self.selectedItems().asarray(), axis=0)
-        n = 0
-        self.imageMax = 0.0
-        print('nsel: ', nsel)
-        for i in range(nsel):
-            try:
-                meanImage = meanImage + np.array(self.canvas.selectedItems()[i].data)
-                imagemax = np.amax(np.amax(meanImage, axis=1), axis=0)
-                if imagemax > self.imageMax:
-                    self.imageMax = imagemax
-                n = n + 1
-            except:
-                print('image i = %d failed' % i)
-                print('file name: ', self.canvas.selectedItems()[i].name)
-                print('expected shape of nxm: ', nxm)
-                print(' but got data shape: ', self.canvas.selectedItems()[i].data.shape)
+        m = np.argmax(hm[0]) # returns the index of the max count
 
-        meanImage = meanImage/n # np.mean(meanImage[0:n], axis=0)
+        meanImage, self.imageMin, self.imageMax = self.getCanvasMeanMinMax()
+        nxm = self.canvas.selectedItems()[0].data.shape
         filtwidth = np.floor(nxm[0]/10+1)
         blimg = scipy.ndimage.filters.gaussian_filter(meanImage, filtwidth, order = 0, mode='reflect')
-        #pg.image(blimg)
         
-        m = np.argmax(hm[0]) # returns the index of the max count
-        print('m = ', m)
+        # find intersections of tiles
+        overlap_matrix = [[None]*nsel]*nsel
+        scaled = [False]*nsel
+        levels = [[]]*nsel
+        for i in range(nsel-1):
+            rect_i = self.getCanvasRect(i)
+            for j in range(i+1, nsel):
+                if scaled[j]:
+                    continue
+                rect_j = self.getCanvasRect(j)
+                overlap_matrix[i][j] = rect_i.intersection(rect_j)
+                # print("Tile matrix: ", i, j, overlap_matrix[i][j])
+                if overlap_matrix[i][j]:
+                    # convert overlap to image coordinates
+                    i_over = self.getOverlapIndices(i, overlap_matrix[i][j])
+                    j_over = self.getOverlapIndices(j, overlap_matrix[i][j])
+                    idx = i_over[1]-i_over[0]
+                    jdx = j_over[1]-j_over[0]
+                    if jdx > idx:
+                        j_over[1] -= jdx-idx
+                    if idx > jdx:
+                        j_over[1] += idx - jdx
+                    idy = i_over[3]-i_over[2]
+                    jdy = j_over[3]-j_over[2]
+                    if jdy > idy:
+                        j_over[3] -= jdy-idy
+                    if idy > jdy:
+                        j_over[3] += idy - jdy
+                        
+                    i_data = self.canvas.selectedItems()[i].data[i_over[0]:i_over[1], i_over[2]:i_over[3]]
+                    j_data = self.canvas.selectedItems()[j].data[j_over[0]:j_over[1], j_over[2]:j_over[3]]
+                    ratio = np.mean(j_data/i_data)
+                    self.canvas.selectedItems()[j].data = (self.canvas.selectedItems()[j].data.astype('float32')*ratio).astype("int16")
+                    imin = np.min(i_data)
+                    imax = np.max(i_data)
+                    levels[j] = [imin, imax]
+                    print("ratio: ", ratio, i_data.shape, j_data.shape)
+                    scaled[j] = True
+        for i in range(nsel):
+            if len(levels[i]) == 0:
+                print("no levels for item : ", i)
+                continue
+            self.canvas.selectedItems()[i].graphicsItem().setLevels(levels[i])
+            # self.canvas.selectedItems()[i].graphicsItem().setLevels([imin, imax])
+            self.canvas.selectedItems()[i].graphicsItem().update()
+                    # self.canvas.selectedItems()[i].graphicsItem().update()
+                    
+        # print('m = ', m)
         # now rescale each individually
         # rescaling is done against the global histogram, to keep the gain constant.
-        for i in range(nsel):
-            d = np.array(self.canvas.selectedItems()[i].data)
-#            hmd = np.histogram(d, 512) # return (count, bins)
-            xh = d.shape # capture shape just in case it is not right (have data that is NOT !!)
-            # flatten the illumination using the blimg average illumination pattern
-            newImage = d # / blimg[0:xh[0], 0:xh[1]] # (d - imin)/(blimg - imin) # rescale image.
-            hn = np.histogram(newImage, bins = hm[1]) # use bins from global image
-            n = np.argmax(hn[0])
-            newImage = (hm[1][m]/hn[1][n])*newImage # rescale to the global max.
-            self.canvas.selectedItems()[i].updateImage(newImage)
-         #   self.canvas.selectedItems()[i].levelRgn.setRegion([0, 2.0])
-            self.canvas.selectedItems()[i].levelRgn.setRegion([0., self.imageMax])
+#         for i in range(nsel):
+#             d = np.array(self.canvas.selectedItems()[i].data)
+# #            hmd = np.histogram(d, 512) # return (count, bins)
+#             xh = d.shape # capture shape just in case it is not right (have data that is NOT !!)
+#             # flatten the illumination using the blimg average illumination pattern
+#             newImage = d # / blimg[0:xh[0], 0:xh[1]] # (d - imin)/(blimg - imin) # rescale image.
+#             hn = np.histogram(newImage, bins = hm[1]) # use bins from global image
+#             n = np.argmax(hn[0])
+#             newImage = (hm[1][m]/hn[1][n])*newImage # rescale to the global max.
+#             self.canvas.selectedItems()[i].updateImage( )
+#             # print("Tile shading: ", self.imageMin, self.imageMax)
+#             self.canvas.selectedItems()[i].graphicsItem().setLevels([self.imageMin, self.imageMax])
+#             self.canvas.selectedItems()[i].graphicsItem().update()
         print( "MosaicEditor::self imageMax: ", self.imageMax)
 
     def normalizeImages(self):
+        print("Normalize")
         self.canvas.view.autoRange()
 
     def updateScaling(self):
@@ -392,7 +500,7 @@ class MosaicEditor(AnalysisModule):
         if nsel == 0:
             return
         for i in range(nsel):
-            self.canvas.selectedItems()[i].levelRgn.setRegion([self.ui.mosaicDisplayMin.value(),
+            self.canvas.selectedItems()[i].graphicsItem().setLevels([self.ui.mosaicDisplayMin.value(),
                                                                self.ui.mosaicDisplayMax.value()])
 
     def flipUD(self):
