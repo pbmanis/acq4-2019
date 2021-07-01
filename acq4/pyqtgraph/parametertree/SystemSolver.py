@@ -126,6 +126,7 @@ class SystemSolver(object):
         
         If no value can be determined, then raise RuntimeError.
         """
+
         if name in self._currentGets:
                 raise RuntimeError("Cyclic dependency while calculating '%s'." % name)
         self._currentGets.add(name)

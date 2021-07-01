@@ -59,14 +59,16 @@ class SRTTransform(QtGui.QTransform):
         
         dp2 = Point(p2-p1)
         dp3 = Point(p3-p1)
-        
         ## detect flipped axes
-        if dp2.angle(dp3) > 0:
+        dp23 = dp2.angle(dp3)
+        if dp23 is None:
+            return
+        if dp23 > 0.:
             #da = 180
-            da = 0
+            da = 0.
             sy = -1.0
         else:
-            da = 0
+            da = 0.
             sy = 1.0
             
         self._state = {
