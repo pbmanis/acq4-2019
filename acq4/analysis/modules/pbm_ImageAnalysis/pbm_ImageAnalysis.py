@@ -482,9 +482,12 @@ class pbm_ImageAnalysis(AnalysisModule):
                         (img, info) = self.tryDownSample(fhandle)
                         self.imageInfo = info
 
-
-                    self.trigger_wgw = dh.parent().info()['devices']['Camera']['daqState']['channels']['trigger']['waveGeneratorWidget']
-                    # print('trigger wavegen function: ', self.trigger_wgw['function'])
+                    print('dh info: ', dh.info().keys())
+                    if 'devices' in list(dh.parent().info().keys()):
+                        self.trigger_wgw = dh.parent().info()['devices']['Camera']['daqState']['channels']['trigger']['waveGeneratorWidget']
+                    else:
+                        self.trigger_wgw = dh.info()['devices']['Camera']['daqState']['channels']['trigger']['waveGeneratorWidget']
+                        # print('trigger wavegen function: ', self.trigger_wgw['function'])
                     # get the delay from the wavegen function
                     trigger_delay = self.trigger_wgw['stimuli']['PulseTrain']['start']['value']
                     self.imageTimes = self.imageInfo[0]['values'] + trigger_delay
@@ -988,7 +991,7 @@ class pbm_ImageAnalysis(AnalysisModule):
         print('normalize method: ', method)
         print('ratio loaded: ', self.dataState['ratioLoaded'])
         print('use ratio: ', self.useRatio)
-        if method == 4:  # g/r ratio  - future: requires image to be loaded (hooks in place, no code yet)
+        if method == 5:  # g/r ratio  - future: requires image to be loaded (hooks in place, no code yet)
             if self.dataState['ratioLoaded'] and self.useRatio:
                 self.GRFFImage() # convert using the ratio
                 
@@ -1645,15 +1648,30 @@ class pbm_ImageAnalysis(AnalysisModule):
         called when we need to update the ROI result plot for a particular ROI widget
         :param roi: handle to the ROI
         :param livePlot: flag for live plotting, passed to showThisROI
+        
+        TODO:
+        We need better handling for 2-channel data sets:
+        Define channel 0 to be [Ca signal, Structural signal, set color]
+        Define channel 1 to be [Ca signal, Structural signal, set other color]
+        Swithch color palette so it is not red-green, but magenta-green or red-blue
+        Setup should be flexible and probably in first panel. 
+        Also, handle 2 configurations:
+            G/R ratio, where R is a single image
+            G/R ratio where both are continuous in time.
+        Pick up data mode from Images.ma as number of channels in the traces.
+        Set checkbox to ignore the structural channel.
         """
         if roi in self.AllRois:
             tr = roi.getArrayRegion(self.imageData, self.imageView.imageItem, axes=(1, 2))
             tr = tr.mean(axis=2).mean(axis=1)  # compute average over the ROI against time
-#            trx = tr.copy()
-            if self.dataState['Normalized'] is False:
-#                trm = tr.mean()  # mean value across all time
-                tr = tr/tr.mean()  # (self.background[0:tr.shape[0]]*trm/self.backgroundmean)
-
+            # if self.dataState['Normalized'] is False:
+            #     tr = tr/tr.mean()  # (self.background[0:tr.shape[0]]*trm/self.backgroundmean)
+            print('tr ndim: ', tr.ndim)
+            if tr.ndim > 1:
+                # tr = tr[:,0]  # select data channel here. Normally 0 will be green if there is more than one
+                print('both channels: ', tr[:,0:2])
+                tr = tr[:,0]/tr[:,1]   # green /red ratio
+                print('tr: ', tr)
             self.FData = self.insertFData(self.FData, tr.copy(), roi)
             self.applyROIFilters(roi)
             self.showThisROI(roi, livePlot)
@@ -1751,6 +1769,11 @@ class pbm_ImageAnalysis(AnalysisModule):
         if sh[0] == 0:
             FData = np.atleast_2d(tr)  # create a new trace in this place
         if sh[0] > roi.ID:  # did we move an existing widget?
+            # print(np.array(tr))
+            # print('tr shape: ', tr.shape)
+            # print('fdata shape: ', FData[roi.ID].shape)
+            # if np.array(tr).shape[1] == 3:
+            #     tr = tr[:,0]
             FData[roi.ID] = np.array(tr)  # then replace the trace
         else:  # the widget is not in the list yet...
             FData = np.append(FData, np.atleast_2d(tr), 0)
