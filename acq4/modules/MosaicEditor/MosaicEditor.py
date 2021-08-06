@@ -184,6 +184,7 @@ class MosaicEditor(AnalysisModule):
         self.canvas.sigItemTransformChangeFinished.connect(self.itemMoved)
         self.ui.atlasCombo.currentIndexChanged.connect(self.atlasComboChanged)
         self.ui.normalizeBtn.clicked.connect(self.normalizeImages)
+        self.ui.autoRangeBtn.clicked.connect(self.autoRangeImages)
         # self.ui.blendBtn.clicked.connect(self.blendImages)
         self.ui.tileShadingBtn.clicked.connect(self.rescaleImages)
         self.ui.mosaicApplyScaleBtn.clicked.connect(self.updateScaling)
@@ -337,20 +338,20 @@ class MosaicEditor(AnalysisModule):
         recti = SG.Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
         return recti
 
-    def getImageRect(self, i, rect, overlap):
+    def getImageRect(self, i):
         """
         return the coordinates in the imagedata that correspond
         to the rectangle coordinates
         i is the image to map
-        rect is the polygon of overlap returned by the intersection the
-        two rectangles (computed from getCanvasRect)
+        # rect is the polygon of overlap returned by the intersection the
+        # two rectangles (computed from getCanvasRect)
         """
         ovlap = canvas_i = self.canvas.selectedItems()[i]
         cornerpos = canvas_i.baseTransform.getTranslation()  # x and y position
         scale = canvas_i.baseTransform.getScale()  # x and y scale
         rectshape = canvas_i.itemRect  # QRectf (0, 0, 588, 512) - 
+        print("cornerpos: ", cornerpos)
 
-    
     def getOverlapIndices(self, i, overlap):
         """
         return the overlap region indices for the polygon Ovelap against
@@ -397,6 +398,112 @@ class MosaicEditor(AnalysisModule):
             n = n + 1
         meanImage = meanImage/n # np.mean(meanImage[0:n], axis=0)
         return meanImage, self.imageMin, self.imageMax
+
+
+
+    def _match_cumulative_cdf(self, source, template):
+        """
+        From scikit_learn exposure/histogram_matching
+        """
+        """
+        Return modified source array so that the cumulative density function of
+        its values matches the cumulative density function of the template.
+        """
+        src_values, src_unique_indices, src_counts = np.unique(source.ravel(),
+                                                               return_inverse=True,
+                                                               return_counts=True)
+        tmpl_values, tmpl_counts = np.unique(template.ravel(), return_counts=True)
+
+        # calculate normalized quantiles for each array
+        src_quantiles = np.cumsum(src_counts) / source.size
+        self.tmpl_quantiles = np.cumsum(tmpl_counts) / template.size
+
+        interp_a_values = np.interp(self.src_quantiles, tmpl_quantiles, tmpl_values)
+        return interp_a_values[src_unique_indices].reshape(source.shape)
+
+
+    def match_histograms(self, image, reference, *, multichannel=False):
+        """
+        From scikit_learn exposure/histogram_matching
+        """
+        """
+        Adjust an image so that its cumulative histogram matches that of another.
+        The adjustment is applied separately for each channel.
+        Parameters
+        ----------
+        image : ndarray
+            Input image. Can be gray-scale or in color.
+        reference : ndarray
+            Image to match histogram of. Must have the same number of channels as
+            image.
+        multichannel : bool, optional
+            Apply the matching separately for each channel.
+        Returns
+        -------
+        matched : ndarray
+            Transformed input image.
+        Raises
+        ------
+        ValueError
+            Thrown when the number of channels in the input image and the reference
+            differ.
+        References
+        ----------
+        .. [1] http://paulbourke.net/miscellaneous/equalisation/
+        """
+        if image.ndim != reference.ndim:
+            raise ValueError('Image and reference must have the same number '
+                             'of channels.')
+
+        if multichannel:
+            if image.shape[-1] != reference.shape[-1]:
+                raise ValueError('Number of channels in the input image and '
+                                 'reference image must match!')
+
+            matched = np.empty(image.shape, dtype=image.dtype)
+            for channel in range(image.shape[-1]):
+                matched_channel = _match_cumulative_cdf(image[..., channel],
+                                                        reference[..., channel])
+                matched[..., channel] = matched_channel
+        else:
+            matched = _match_cumulative_cdf(image, reference)
+
+        return matched
+
+    def remapImages(self):
+        maxx = 0
+        maxy = 0
+        shapes = np.zeros((len(self.canvas.selectedItems()), 2)).astype("Int16")
+        for i, img in enumerate(self.canvas.selectedItems()):
+            print("im: ", img.data.shape)
+            shapes[i]  = img.data.shape
+        print("shapes: ", shapes)
+        maxx = np.max(shapes[:,0]).astype("Int16")
+        maxy = np.max(shapes[:,1]).astype("Int16")
+        print("maxx, maxy: ", maxx, maxy)
+        sh = [maxx, maxy]
+        print(sh)
+        X = np.linspace(0, maxx)
+        Y = np.linspace(0, maxy)
+        X, Y = np.meshgrid(X, Y)
+        
+        for i, img in enumerate(self.canvas.selectedItems()):
+            if img.data.shape == sh:
+                continue
+            # interpolate
+            print("Image i: ", i)
+            print("   starting shape: ", img.data.shape)
+            tx = np.linspace(0, img.data.shape[0]-1, img.data.shape[0])
+            ty = np.linspace(0, img.data.shape[1]-1, img.data.shape[1])
+            print("   tx, ty, data shape: ", tx.shape, ty.shape, img.data.shape)
+            td = np.array((tx, ty)).T
+            print('td shape: ', td.shape)
+            print(td)
+            interp = scipy.interpolate.NearestNDInterpolator(td, img.data)
+            img.data = interp(X, Y)
+            print('   final shape: ', img.data.shape)
+        
+            
         
     def rescaleImages(self):
         """
@@ -409,12 +516,16 @@ class MosaicEditor(AnalysisModule):
         Use the min/max mosaic button to readjust the display scale after this
         automatic operation if the scaling is not to your liking.
         """
+        usemaxlev = True
         nsel =  len(self.canvas.selectedItems())
         if nsel == 0:
             return
        # print dir(self.selectedItems()[0].data)
+        for i in range(nsel-1):
+            self.getImageRect(i)
         nhistbins = 100
         # generate a histogram of the global levels in the image (all images selected)
+        self.remapImages()
         hm = np.histogram(np.dstack([x.data for x in self.canvas.selectedItems()]), nhistbins)
         m = np.argmax(hm[0]) # returns the index of the max count
 
@@ -429,9 +540,15 @@ class MosaicEditor(AnalysisModule):
         levels = [[]]*nsel
         for i in range(nsel-1):
             rect_i = self.getCanvasRect(i)
+            io_data = self.canvas.selectedItems()[i].data
+            iamax = np.argmax(io_data)
+            iamax = np.unravel_index(iamax, io_data.shape)
+            print(iamax)
+            # io_data[iamax] = 0
             for j in range(i+1, nsel):
                 if scaled[j]:
                     continue
+                jo_data = self.canvas.selectedItems()[j].data
                 rect_j = self.getCanvasRect(j)
                 overlap_matrix[i][j] = rect_i.intersection(rect_j)
                 # print("Tile matrix: ", i, j, overlap_matrix[i][j])
@@ -452,20 +569,25 @@ class MosaicEditor(AnalysisModule):
                     if idy > jdy:
                         j_over[3] += idy - jdy
                         
-                    i_data = self.canvas.selectedItems()[i].data[i_over[0]:i_over[1], i_over[2]:i_over[3]]
-                    j_data = self.canvas.selectedItems()[j].data[j_over[0]:j_over[1], j_over[2]:j_over[3]]
+                    i_data = io_data[i_over[0]:i_over[1], i_over[2]:i_over[3]]
+                    j_data = jo_data[j_over[0]:j_over[1], j_over[2]:j_over[3]]
                     ratio = np.mean(j_data/i_data)
-                    self.canvas.selectedItems()[j].data = (self.canvas.selectedItems()[j].data.astype('float32')*ratio).astype("int16")
+                    # self.canvas.selectedItems()[j].data = (self.canvas.selectedItems()[j].data.astype('float32')*ratio).astype("int16")
                     imin = np.min(i_data)
                     imax = np.max(i_data)
-                    levels[j] = [imin, imax]
+
+                    levels[j] = [0, imax]
                     print("ratio: ", ratio, i_data.shape, j_data.shape)
                     scaled[j] = True
+        maxlev = np.max(levels[:][1])*4.0
         for i in range(nsel):
             if len(levels[i]) == 0:
                 print("no levels for item : ", i)
                 continue
-            self.canvas.selectedItems()[i].graphicsItem().setLevels(levels[i])
+            if usemaxlev:
+                self.canvas.selectedItems()[i].graphicsItem().setLevels([0, maxlev])
+            else:
+                self.canvas.selectedItems()[i].graphicsItem().setLevels(levels[i])
             # self.canvas.selectedItems()[i].graphicsItem().setLevels([imin, imax])
             self.canvas.selectedItems()[i].graphicsItem().update()
                     # self.canvas.selectedItems()[i].graphicsItem().update()
@@ -490,6 +612,31 @@ class MosaicEditor(AnalysisModule):
 
     def normalizeImages(self):
         print("Normalize")
+        usemaxlev = True
+        nsel =  len(self.canvas.selectedItems())
+        if nsel == 0:
+            return
+        levels = [[]]*nsel
+        for i in range(nsel-1):
+            rect_i = self.getCanvasRect(i)
+            io_data = self.canvas.selectedItems()[i].data
+            imax = np.max(io_data)
+            levels[i] = [0, imax]
+
+        maxlev = np.max(levels[:][1])*4.0
+        for i in range(nsel):
+            if len(levels[i]) == 0:
+                print("no levels for item : ", i)
+                continue
+            if usemaxlev:
+                self.canvas.selectedItems()[i].graphicsItem().setLevels([0, maxlev])
+            else:
+                self.canvas.selectedItems()[i].graphicsItem().setLevels(levels[i])
+            # self.canvas.selectedItems()[i].graphicsItem().setLevels([imin, imax])
+            self.canvas.selectedItems()[i].graphicsItem().update()
+       
+    def autoRangeImages(self):
+        print("autorange")
         self.canvas.view.autoRange()
 
     def updateScaling(self):
